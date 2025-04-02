@@ -14,22 +14,19 @@ class RutrackerAPI:
         self.proxies = self.setup_proxies()
 
     def setup_proxies(self):
-        try:
-            if os.getenv('USE_PROXY', 'false').lower() == 'true':
-                proxies = {
-                    "http": os.getenv('HTTP_PROXY'),
-                    "https": os.getenv('HTTPS_PROXY')
-                }
-                if not all(proxies.values()):
-                    raise ValueError("Не настроены прокси-серверы")
-                if not all(self.validate_proxy(proxy) for proxy in proxies.values()):
-                    raise ValueError("Некорректные настройки прокси")
-                return proxies
-            else:
+        if os.getenv('USE_PROXY', 'false').lower() == 'true':
+            proxies = {
+                "http": os.getenv('HTTP_PROXY'),
+                "https": os.getenv('HTTPS_PROXY')
+            }
+            if not all(proxies.values()):
+                logging.error("Не настроены прокси-серверы")
                 return None
-        except Exception as e:
-            logging.error(f"Ошибка при настройке прокси: {e}")
-            return None
+            if not all(self.validate_proxy(proxy) for proxy in proxies.values()):
+                logging.error("Некорректные настройки прокси")
+                return None
+            return proxies
+        return None
 
     def validate_proxy(self, proxy_url):
         try:
@@ -53,19 +50,10 @@ class RutrackerAPI:
             "login_password": self.password,
             "login": "вход"
         }
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         try:
-            response = self.session.post(
-                login_url, 
-                data=payload, 
-                headers=headers,
-                proxies=self.proxies
-            )
-
+            response = self.session.post(login_url, data=payload, headers=headers, proxies=self.proxies)
             self.logged_in = "logged-in" in response.text or "logout" in response.text
             return self.logged_in
         except Exception as e:
@@ -78,19 +66,10 @@ class RutrackerAPI:
 
         search_url = self.base_url + "tracker.php"
         params = {"nm": movie_name}
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         try:
-            response = self.session.get(
-                search_url,
-                params=params,
-                headers=headers,
-                proxies=self.proxies
-            )
-
+            response = self.session.get(search_url, params=params, headers=headers, proxies=self.proxies)
             soup = BeautifulSoup(response.text, "html.parser")
             results = []
 
@@ -101,17 +80,12 @@ class RutrackerAPI:
                         continue
 
                     title = title_element.text.strip()
-
                     if not any(keyword in title.lower() for keyword in ["фантастика", "драма", "фэнтези", "ужасы", "мелодрама", "комедия", "боевик", "арт-хаус", "триллер"]):
                         continue
 
                     topic_id = re.search(r"t=(\d+)", title_element["href"]).group(1)
-
-                    size_element = row.select_one("td.tor-size")
-                    size = size_element.text.strip() if size_element else "Неизвестно"
-
-                    seeders_element = row.select_one("td.seeders")
-                    seeders = seeders_element.text.strip() if seeders_element else "0"
+                    size = row.select_one("td.tor-size").text.strip() if row.select_one("td.tor-size") else "Неизвестно"
+                    seeders = row.select_one("td.seeders").text.strip() if row.select_one("td.seeders") else "0"
 
                     results.append({
                         "title": title,
@@ -133,23 +107,14 @@ class RutrackerAPI:
             return None
 
         download_url = f"{self.base_url}dl.php?t={topic_id}"
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         try:
-            response = self.session.get(
-                download_url, 
-                headers=headers,
-                proxies=self.proxies,
-                stream=True
-            )
-
+            response = self.session.get(download_url, headers=headers, proxies=self.proxies, stream=True)
             if response.status_code == 200:
                 return response.content
-
             return None
         except Exception as e:
             logging.error(f"Ошибка при скачивании торрента: {e}")
             return None
+
