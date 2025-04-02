@@ -15,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -89,7 +89,7 @@ whitelist = load_whitelist(whitelist_file)
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
-    keyboard.add(InlineKeyboardButton("URL", callback_data="get_url"))
+    keyboard.add(InlineKeyboardButton("🔗 URL c rutracker", callback_data="get_url"))
     bot.send_message(chat_id, text, reply_markup=keyboard)
 
 def send_message_without_search_button(chat_id, text):
@@ -116,6 +116,15 @@ def send_info(message):
     movie_count = get_movie_count(base_file)
     user_count = get_user_count(whitelist_file)
     bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
+
+@bot.message_handler(commands=['get'])
+def get_url_command(message):
+    if message.chat.id not in whitelist:
+        log_unauthorized_access(message.chat.id)
+        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+        return
+    msg = bot.send_message(message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
+    bot.register_next_step_handler(msg, process_get_url_step)
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
@@ -303,6 +312,5 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
 
 
