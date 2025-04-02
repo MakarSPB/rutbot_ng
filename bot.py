@@ -15,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -165,6 +165,9 @@ def process_get_url_step(message):
             bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
             bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
             
+            # Логирование информации о загруженном файле
+            logging.info(f"Торрент-файл загружен: {file_path}")
+
             # Извлечение заголовка страницы
             title = rutracker_api.get_title_from_url(url)
             if title:
@@ -280,6 +283,9 @@ def download_torrent(call):
         bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
         send_message_with_search_button(call.message.chat.id, "✅ Файл успешно сохранён на сервер.")
+
+        # Логирование информации о загруженном файле
+        logging.info(f"Торрент-файл загружен: {file_path}")
     else:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.")
         send_message_with_search_button(call.message.chat.id, "❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.")
@@ -293,3 +299,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
