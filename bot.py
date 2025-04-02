@@ -89,7 +89,7 @@ whitelist = load_whitelist(whitelist_file)
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
-    keyboard.add(InlineKeyboardButton("URL", callback_data="get_url"))
+    keyboard.add(InlineKeyboardButton("🔗URL c rutracker", callback_data="get_url"))
     bot.send_message(chat_id, text, reply_markup=keyboard)
 
 def send_message_without_search_button(chat_id, text):
@@ -282,6 +282,7 @@ def download_torrent(call):
 
         bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+        send_message_with_search_button(call.message.chat.id, "✅ Файл успешно сохранён на сервер.")
 
         # Логирование информации о загруженном файле
         logging.info(f"Торрент-файл загружен: {file_path}")
@@ -292,10 +293,9 @@ def download_torrent(call):
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-    send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
+    send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте кнопки ниже для нового поиска или загрузки файла по ссылке.")
 
 # Запуск бота
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
