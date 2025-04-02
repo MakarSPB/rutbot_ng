@@ -30,7 +30,7 @@ def setup_logging():
 
     logging.basicConfig(level=log_level, format=log_format, handlers=handlers)
 
-    if enable_unauthorized_logging и unauthorized_log_file:
+    if enable_unauthorized_logging and unauthorized_log_file:
         unauthorized_handler = logging.FileHandler(unauthorized_log_file)
         unauthorized_handler.setLevel(logging.INFO)
         unauthorized_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
