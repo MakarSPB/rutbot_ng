@@ -129,7 +129,7 @@ def get_url_command(message):
     # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
+    bot.send_message(message.chat.id, reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
@@ -149,7 +149,7 @@ def get_url_prompt(call):
     # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(call.message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
+    bot.send_message(call.message.chat.id, reply_markup=keyboard)
 
 def process_search_step(message, prompt_message_id):
     if message.text.startswith('/'):
