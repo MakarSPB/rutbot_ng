@@ -110,7 +110,8 @@ whitelist = load_whitelist(whitelist_file)
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
     search_button = InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt")
-    keyboard.add(search_button)
+    download_button = InlineKeyboardButton("⬇️ Загрузка", callback_data="download_prompt")
+    keyboard.add(search_button, download_button)
     bot.send_message(chat_id, text, reply_markup=keyboard)
 
 def send_message_without_search_button(chat_id, text):
@@ -210,6 +211,15 @@ def search_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step)
 
+@bot.callback_query_handler(func=lambda call: call.data == "download_prompt")
+def download_prompt(call):
+    if call.message.chat.id not in whitelist:
+        log_unauthorized_access(call.message.chat.id)
+        send_message_without_search_button(call.message.chat.id, "Доступ запрещен.")
+        return
+    msg = bot.send_message(call.message.chat.id, "Введите ссылку для загрузки торрента:")
+    bot.register_next_step_handler(msg, process_download_step)
+
 def process_search_step(message):
     if message.chat.id not in whitelist:
         log_unauthorized_access(message.chat.id)
@@ -217,6 +227,14 @@ def process_search_step(message):
         return
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     search_movie_internal(message, message.text)
+
+def process_download_step(message):
+    if message.chat.id not in whitelist:
+        log_unauthorized_access(message.chat.id)
+        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+        return
+    bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    download_torrent_by_url(message, message.text)
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
