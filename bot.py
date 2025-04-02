@@ -14,10 +14,10 @@ load_dotenv()
 # Настройки логирования
 def setup_logging():
     global unauthorized_logger
-    log_level = os.getenv('LOG_LEVEL').upper()
+    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
-    use_console = os.getenv('USE_CONSOLE').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT')
+    use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -190,8 +190,13 @@ def download_torrent_by_url(url, save_directory):
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
-        # Извлечение имени файла из URL
-        filename = url.split('/')[-1]
+        # Извлечение имени файла из заголовков ответа
+        content_disposition = response.headers.get('content-disposition')
+        if content_disposition:
+            filename = re.findall('filename="(.+)"', content_disposition)[0]
+        else:
+            filename = url.split('/')[-1]
+
         file_path = os.path.join(save_directory, filename)
 
         with open(file_path, 'wb') as file:
@@ -438,4 +443,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
