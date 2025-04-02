@@ -118,7 +118,7 @@ class RutrackerAPI:
             logging.error(f"Ошибка при скачивании торрента: {e}")
             return None
 
-    def download_torrent_by_url(self, page_url, base_file, forbidden_words, forbidden_patterns):
+    def download_torrent_by_url(self, page_url):
         if not self.login():
             return None
 
@@ -136,20 +136,9 @@ class RutrackerAPI:
                 logging.error("Ссылка на загрузку торрента не найдена")
                 return None
 
-            # Извлечение названия
-            title_element = soup.select_one("title")
-            if not title_element:
-                logging.error("Не удалось извлечь название страницы")
-                return None
-            title = title_element.text.split('/')[0].strip()
-
             download_url = self.base_url + download_link_element["href"]
             torrent_response = self.session.get(download_url, headers=headers, proxies=self.proxies, stream=True)
             if torrent_response.status_code == 200:
-                # Логирование результата в BASE_FILE
-                if not self.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
-                    logging.info("Файл уже есть на Plex. Торрент не будет загружен.")
-                    return None
                 return torrent_response.content
             else:
                 logging.error(f"Ошибка при загрузке торрента: {torrent_response.status_code}")
@@ -194,5 +183,3 @@ class RutrackerAPI:
         except Exception as e:
             logging.error(f"Ошибка при проверке наличия записи в base.csv: {e}")
             return False
-
-
