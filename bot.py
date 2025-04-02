@@ -2,6 +2,7 @@ import os
 import re
 import telebot
 import logging
+import requests
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist
@@ -184,6 +185,25 @@ def get_user_count(whitelist_file):
         logging.error(f"Ошибка при подсчете количества пользователей: {e}")
         return 0
 
+def download_torrent_by_url(url, save_directory):
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+
+        # Извлечение имени файла из URL
+        filename = url.split('/')[-1]
+        file_path = os.path.join(save_directory, filename)
+
+        with open(file_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+
+        logging.info(f"Торрент-файл успешно загружен: {file_path}")
+        return file_path
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
+        return None
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if message.chat.id not in whitelist:
@@ -234,7 +254,17 @@ def process_download_step(message):
         send_message_without_search_button(message.chat.id, "Доступ запрещен.")
         return
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    download_torrent_by_url(message, message.text)
+    file_path = download_torrent_by_url(message.text, SAVE_DIRECTORY)
+    if file_path:
+        with open(file_path, 'rb') as torrent_file:
+            bot.send_document(
+                message.chat.id,
+                torrent_file,
+                visible_file_name=os.path.basename(file_path),
+                caption="✅ Вот ваш торрент-файл!"
+            )
+    else:
+        send_message_with_search_button(message.chat.id, "❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.")
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
@@ -408,3 +438,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
