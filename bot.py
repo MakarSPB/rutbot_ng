@@ -138,11 +138,17 @@ def get_url_prompt(call):
     bot.send_message(call.message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
 
 def process_search_step(message, prompt_message_id):
+    if message.text.startswith('/'):
+        send_message_with_search_button(message.chat.id, "Пожалуйста, укажите название фильма без команды.")
+        return
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     bot.delete_message(chat_id=message.chat.id, message_id=prompt_message_id)
     search_movie_internal(message, message.text)
 
 def process_get_url_step(message):
+    if message.text.startswith('/'):
+        send_message_with_search_button(message.chat.id, "Пожалуйста, отправьте ссылку без команды.")
+        return
     url = message.text
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     status_message = bot.send_message(message.chat.id, "⏳ Загружаю торрент-файл... Пожалуйста, подождите.")
@@ -287,3 +293,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
