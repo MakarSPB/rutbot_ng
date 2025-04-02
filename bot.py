@@ -189,7 +189,7 @@ def process_get_url_step(message):
                 title = title.split('/')[0].strip()
                 # Логирование результата в BASE_FILE
                 if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
-                    send_message_with_search_button(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
+                    bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
             # Добавление кнопок поиска после отправки торрент-файла
             send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
         else:
@@ -283,7 +283,7 @@ def download_torrent(call):
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
             if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
-                send_message_with_search_button(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
+                bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
 
