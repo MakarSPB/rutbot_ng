@@ -219,7 +219,7 @@ def search_movie_internal(message, query):
     for result in results:
         try:
             size_str = result['size'].lower()
-            if 'gb' in size_str or 'гб' в size_str:
+            if 'gb' in size_str or 'гб' in size_str:
                 match = re.search(r'(\d+[.,]?\d*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
