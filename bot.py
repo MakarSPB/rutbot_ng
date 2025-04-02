@@ -4,7 +4,7 @@ import telebot
 import logging
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from utils import ensure_directory_exists, ensure_file_exists, load_whitelist
+from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
 from rutracker_api import RutrackerAPI
 
 # Загрузка переменных окружения
@@ -98,63 +98,6 @@ def log_unauthorized_access(user_id):
     if unauthorized_logger:
         unauthorized_logger.info(f"Неавторизованный доступ: {user_id}")
 
-def is_query_already_searched(base_file, query):
-    try:
-        if not os.path.exists(base_file):
-            return False
-        with open(base_file, 'r') as file:
-            return any(query.lower() in line.lower() for line in file)
-    except Exception as e:
-        logging.error(f"Ошибка при проверке запроса в base.csv: {e}")
-        return False
-
-def log_search_result(base_file, title):
-    try:
-        extracted_title = re.split(r'\s*/\s*', title)[0]
-        if any(word.lower() in extracted_title.lower() for word in forbidden_words) or \
-           any(re.search(pattern, extracted_title, re.IGNORECASE) for pattern in forbidden_patterns):
-            logging.info(f"Запрещенное слово найдено в заголовке: {extracted_title}")
-            return False
-        if is_title_already_logged(base_file, extracted_title):
-            logging.info(f"Строка уже существует в base.csv: {extracted_title}")
-            return False
-        with open(base_file, 'a', encoding='utf-8') as file:
-            file.write(f'"{extracted_title}"\n')
-        return True
-    except Exception as e:
-        logging.error(f"Ошибка при логировании поискового запроса: {e}")
-        return False
-
-def is_title_already_logged(base_file, title):
-    try:
-        if not os.path.exists(base_file):
-            return False
-        with open(base_file, 'r', encoding='utf-8') as file:
-            return any(f'"{title}"' in line for line in file)
-    except Exception as e:
-        logging.error(f"Ошибка при проверке наличия записи в base.csv: {e}")
-        return False
-
-def get_movie_count(base_file):
-    try:
-        if not os.path.exists(base_file):
-            return 0
-        with open(base_file, 'r', encoding='utf-8') as file:
-            return sum(1 for line in file)
-    except Exception as e:
-        logging.error(f"Ошибка при подсчете количества фильмов: {e}")
-        return 0
-
-def get_user_count(whitelist_file):
-    try:
-        if not os.path.exists(whitelist_file):
-            return 0
-        with open(whitelist_file, 'r', encoding='utf-8') as file:
-            return sum(1 for line in file)
-    except Exception as e:
-        logging.error(f"Ошибка при подсчете количества пользователей: {e}")
-        return 0
-
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if message.chat.id not in whitelist:
@@ -203,7 +146,7 @@ def search_movie(message):
     search_movie_internal(message, query)
 
 def search_movie_internal(message, query):
-    if is_query_already_searched(base_file, query):
+    if rutracker_api.is_query_already_searched(base_file, query):
         send_message_with_search_button(message.chat.id, "Файл уже есть на сервере.")
         return
 
@@ -269,14 +212,14 @@ def download_torrent(call):
     data = call.data.replace('download_', '').split('_')
     topic_id, query = data[0], '_'.join(data[1:])
 
-    if is_title_already_logged(base_file, query):
+    if rutracker_api.is_title_already_logged(base_file, query):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
         return
 
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if not log_search_result(base_file, result["title"]):
+            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
                 send_message_with_search_button(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break

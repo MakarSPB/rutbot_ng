@@ -118,3 +118,40 @@ class RutrackerAPI:
             logging.error(f"Ошибка при скачивании торрента: {e}")
             return None
 
+    def is_query_already_searched(self, base_file, query):
+        try:
+            if not os.path.exists(base_file):
+                return False
+            with open(base_file, 'r') as file:
+                return any(query.lower() in line.lower() for line in file)
+        except Exception as e:
+            logging.error(f"Ошибка при проверке запроса в base.csv: {e}")
+            return False
+
+    def log_search_result(self, base_file, title, forbidden_words, forbidden_patterns):
+        try:
+            extracted_title = re.split(r'\s*/\s*', title)[0]
+            if any(word.lower() in extracted_title.lower() for word in forbidden_words) or \
+               any(re.search(pattern, extracted_title, re.IGNORECASE) for pattern in forbidden_patterns):
+                logging.info(f"Запрещенное слово найдено в заголовке: {extracted_title}")
+                return False
+            if self.is_title_already_logged(base_file, extracted_title):
+                logging.info(f"Строка уже существует в base.csv: {extracted_title}")
+                return False
+            with open(base_file, 'a', encoding='utf-8') as file:
+                file.write(f'"{extracted_title}"\n')
+            return True
+        except Exception as e:
+            logging.error(f"Ошибка при логировании поискового запроса: {e}")
+            return False
+
+    def is_title_already_logged(self, base_file, title):
+        try:
+            if not os.path.exists(base_file):
+                return False
+            with open(base_file, 'r', encoding='utf-8') as file:
+                return any(f'"{title}"' in line for line in file)
+        except Exception as e:
+            logging.error(f"Ошибка при проверке наличия записи в base.csv: {e}")
+            return False
+
