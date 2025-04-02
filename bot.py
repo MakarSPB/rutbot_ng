@@ -85,28 +85,15 @@ bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 whitelist = load_whitelist(whitelist_file)
 
-# Переменные для хранения идентификаторов последних сообщений
-last_message_id = None
-last_prompt_message_id = None
-last_cancel_message_id = None
-
 # Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
-    global last_message_id
-    if last_message_id:
-        bot.delete_message(chat_id, last_message_id)
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
     keyboard.add(InlineKeyboardButton("URL", callback_data="get_url"))
-    msg = bot.send_message(chat_id, text, reply_markup=keyboard)
-    last_message_id = msg.message_id
+    bot.send_message(chat_id, text, reply_markup=keyboard)
 
 def send_message_without_search_button(chat_id, text):
-    global last_message_id
-    if last_message_id:
-        bot.delete_message(chat_id, last_message_id)
-    msg = bot.send_message(chat_id, text)
-    last_message_id = msg.message_id
+    bot.send_message(chat_id, text)
 
 def log_unauthorized_access(user_id):
     if unauthorized_logger:
@@ -128,77 +115,36 @@ def send_info(message):
         return
     movie_count = get_movie_count(base_file)
     user_count = get_user_count(whitelist_file)
-    send_message_without_search_button(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
+    bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
-    global last_prompt_message_id, last_cancel_message_id
-    if call.message.chat.id not in whitelist:
-        log_unauthorized_access(call.message.chat.id)
-        send_message_without_search_button(call.message.chat.id, "Доступ запрещен.")
-        return
-    if last_prompt_message_id:
-        bot.delete_message(call.message.chat.id, last_prompt_message_id)
-    if last_cancel_message_id:
-        bot.delete_message(call.message.chat.id, last_cancel_message_id)
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step, msg.message_id)
-    last_prompt_message_id = msg.message_id
 
     # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    cancel_msg = bot.send_message(call.message.chat.id, "Вы можете отменить поиск, нажав кнопку ниже.", reply_markup=keyboard)
-    last_cancel_message_id = cancel_msg.message_id
+    bot.send_message(call.message.chat.id, "Вы можете отменить поиск, нажав кнопку ниже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_url")
 def get_url_prompt(call):
-    global last_prompt_message_id, last_cancel_message_id
-    if call.message.chat.id not in whitelist:
-        log_unauthorized_access(call.message.chat.id)
-        send_message_without_search_button(call.message.chat.id, "Доступ запрещен.")
-        return
-    if last_prompt_message_id:
-        bot.delete_message(call.message.chat.id, last_prompt_message_id)
-    if last_cancel_message_id:
-        bot.delete_message(call.message.chat.id, last_cancel_message_id)
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
     bot.register_next_step_handler(msg, process_get_url_step)
-    last_prompt_message_id = msg.message_id
 
     # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    cancel_msg = bot.send_message(call.message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
-    last_cancel_message_id = cancel_msg.message_id
+    bot.send_message(call.message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
 
 def process_search_step(message, prompt_message_id):
-    global last_prompt_message_id, last_cancel_message_id
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
-        return
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     bot.delete_message(chat_id=message.chat.id, message_id=prompt_message_id)
-    if last_cancel_message_id:
-        bot.delete_message(chat_id=message.chat.id, message_id=last_cancel_message_id)
-    last_prompt_message_id = None
-    last_cancel_message_id = None
     search_movie_internal(message, message.text)
 
 def process_get_url_step(message):
-    global last_prompt_message_id, last_cancel_message_id
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
-        return
     url = message.text
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    bot.delete_message(chat_id=message.chat.id, message_id=last_prompt_message_id)
-    if last_cancel_message_id:
-        bot.delete_message(chat_id=message.chat.id, message_id=last_cancel_message_id)
-    last_prompt_message_id = None
-    last_cancel_message_id = None
     status_message = bot.send_message(message.chat.id, "⏳ Загружаю торрент-файл... Пожалуйста, подождите.")
     torrent_content = rutracker_api.download_torrent_by_url(url)
     if torrent_content:
@@ -224,9 +170,6 @@ def process_get_url_step(message):
             bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
     else:
         bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
-    
-    # Удаление предыдущего сообщения от бота
-    bot.delete_message(chat_id=message.chat.id, message_id=message.message_id - 1)
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
@@ -307,7 +250,7 @@ def download_torrent(call):
     topic_id, query = data[0], '_'.join(data[1:])
 
     if rutracker_api.is_title_already_logged(base_file, query):
-        send_message_without_search_button(call.message.chat.id, "❗️ Этот торрент уже был загружен ранее.")
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
         return
 
     search_result = rutracker_api.search_movie(query)
@@ -318,7 +261,7 @@ def download_torrent(call):
                 return
             break
 
-    status_message = bot.send_message(call.message.chat.id, "⏳ Скачиваю торрент-файл... Пожалуйста, подождите.")
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="⏳ Скачиваю торрент-файл... Пожалуйста, подождите.")
 
     torrent_data = rutracker_api.get_torrent(topic_id)
 
@@ -337,18 +280,10 @@ def download_torrent(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):
-    global last_prompt_message_id, last_cancel_message_id
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-    if last_prompt_message_id:
-        bot.delete_message(chat_id=call.message.chat.id, message_id=last_prompt_message_id)
-    if last_cancel_message_id:
-        bot.delete_message(chat_id=call.message.chat.id, message_id=last_cancel_message_id)
-    last_prompt_message_id = None
-    last_cancel_message_id = None
     send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
 
 # Запуск бота
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
