@@ -175,6 +175,9 @@ def process_get_url_step(message):
             bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
     else:
         bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
+    
+    # Удаление предыдущего сообщения от бота
+    bot.delete_message(chat_id=message.chat.id, message_id=message.message_id - 1)
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
