@@ -85,15 +85,26 @@ bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 whitelist = load_whitelist(whitelist_file)
 
+# Переменная для хранения идентификатора последнего сообщения
+last_message_id = None
+
 # Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
+    global last_message_id
+    if last_message_id:
+        bot.delete_message(chat_id, last_message_id)
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
     keyboard.add(InlineKeyboardButton("URL", callback_data="get_url"))
-    bot.send_message(chat_id, text, reply_markup=keyboard)
+    msg = bot.send_message(chat_id, text, reply_markup=keyboard)
+    last_message_id = msg.message_id
 
 def send_message_without_search_button(chat_id, text):
-    bot.send_message(chat_id, text)
+    global last_message_id
+    if last_message_id:
+        bot.delete_message(chat_id, last_message_id)
+    msg = bot.send_message(chat_id, text)
+    last_message_id = msg.message_id
 
 def log_unauthorized_access(user_id):
     if unauthorized_logger:
@@ -115,7 +126,7 @@ def send_info(message):
         return
     movie_count = get_movie_count(base_file)
     user_count = get_user_count(whitelist_file)
-    bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
+    send_message_without_search_button(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
@@ -262,7 +273,6 @@ def search_movie_internal(message, query):
 def download_torrent(call):
     if call.message.chat.id not in whitelist:
         log_unauthorized_access(call.message.chat.id)
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Доступ запрещён.")
         send_message_without_search_button(call.message.chat.id, "Доступ запрещён.")
         return
 
@@ -270,7 +280,7 @@ def download_torrent(call):
     topic_id, query = data[0], '_'.join(data[1:])
 
     if rutracker_api.is_title_already_logged(base_file, query):
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
+        send_message_without_search_button(call.message.chat.id, "❗️ Этот торрент уже был загружен ранее.")
         return
 
     search_result = rutracker_api.search_movie(query)
@@ -281,7 +291,7 @@ def download_torrent(call):
                 return
             break
 
-    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="⏳ Скачиваю торрент-файл... Пожалуйста, подождите.")
+    status_message = bot.send_message(call.message.chat.id, "⏳ Скачиваю торрент-файл... Пожалуйста, подождите.")
 
     torrent_data = rutracker_api.get_torrent(topic_id)
 
@@ -307,3 +317,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
