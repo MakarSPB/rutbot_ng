@@ -163,6 +163,10 @@ def process_get_url_step(message):
             os.chmod(file_path, 0o755)
             bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
             bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!")
+            
+            # Логирование результата в BASE_FILE
+            if not rutracker_api.log_search_result(base_file, topic_id, forbidden_words, forbidden_patterns):
+                send_message_with_search_button(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
         else:
             bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
     else:
