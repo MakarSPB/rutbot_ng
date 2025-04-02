@@ -15,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -30,7 +30,7 @@ def setup_logging():
 
     logging.basicConfig(level=log_level, format=log_format, handlers=handlers)
 
-    if enable_unauthorized_logging and unauthorized_log_file:
+    if enable_unauthorized_logging и unauthorized_log_file:
         unauthorized_handler = logging.FileHandler(unauthorized_log_file)
         unauthorized_handler.setLevel(logging.INFO)
         unauthorized_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
@@ -175,6 +175,8 @@ def process_get_url_step(message):
                 # Логирование результата в BASE_FILE
                 if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
                     send_message_with_search_button(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
+            # Добавление кнопок поиска после отправки торрент-файла
+            send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
         else:
             bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
     else:
@@ -285,6 +287,9 @@ def download_torrent(call):
 
         # Логирование информации о загруженном файле
         logging.info(f"Торрент-файл загружен: {file_path}")
+
+        # Добавление кнопок поиска после отправки торрент-файла
+        send_message_with_search_button(call.message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
     else:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.")
         send_message_with_search_button(call.message.chat.id, "❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.")
