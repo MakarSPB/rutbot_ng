@@ -163,7 +163,7 @@ def process_get_url_step(message):
                 f.write(torrent_content)
             os.chmod(file_path, 0o755)
             bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
-            bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!")
+            bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
             
             # Извлечение заголовка страницы
             title = rutracker_api.get_title_from_url(url)
