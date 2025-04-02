@@ -124,7 +124,16 @@ def search_prompt(call):
         send_message_without_search_button(call.message.chat.id, "Доступ запрещен.")
         return
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
-    bot.register_next_step_handler(msg, process_search_step)
+    bot.register_next_step_handler(msg, process_search_step, msg.message_id)
+
+def process_search_step(message, prompt_message_id):
+    if message.chat.id not in whitelist:
+        log_unauthorized_access(message.chat.id)
+        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+        return
+    bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    bot.delete_message(chat_id=message.chat.id, message_id=prompt_message_id)
+    search_movie_internal(message, message.text)
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_url")
 def get_url_prompt(call):
@@ -134,14 +143,6 @@ def get_url_prompt(call):
         return
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
     bot.register_next_step_handler(msg, process_get_url_step)
-
-def process_search_step(message):
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
-        return
-    bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    search_movie_internal(message, message.text)
 
 def process_get_url_step(message):
     if message.chat.id not in whitelist:
