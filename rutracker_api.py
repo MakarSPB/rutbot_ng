@@ -118,6 +118,35 @@ class RutrackerAPI:
             logging.error(f"Ошибка при скачивании торрента: {e}")
             return None
 
+    def download_torrent_by_url(self, page_url):
+        if not self.login():
+            return None
+
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+        try:
+            response = self.session.get(page_url, headers=headers, proxies=self.proxies)
+            if response.status_code != 200:
+                logging.error(f"Ошибка при загрузке страницы: {response.status_code}")
+                return None
+
+            soup = BeautifulSoup(response.text, "html.parser")
+            download_link_element = soup.select_one("a[href*='dl.php?t=']")
+            if not download_link_element:
+                logging.error("Ссылка на загрузку торрента не найдена")
+                return None
+
+            download_url = self.base_url + download_link_element["href"]
+            torrent_response = self.session.get(download_url, headers=headers, proxies=self.proxies, stream=True)
+            if torrent_response.status_code == 200:
+                return torrent_response.content
+            else:
+                logging.error(f"Ошибка при загрузке торрента: {torrent_response.status_code}")
+                return None
+        except Exception as e:
+            logging.error(f"Ошибка при загрузке торрента по ссылке: {e}")
+            return None
+
     def is_query_already_searched(self, base_file, query):
         try:
             if not os.path.exists(base_file):
@@ -154,4 +183,3 @@ class RutrackerAPI:
         except Exception as e:
             logging.error(f"Ошибка при проверке наличия записи в base.csv: {e}")
             return False
-
