@@ -144,12 +144,13 @@ def search_prompt(call):
 @bot.callback_query_handler(func=lambda call: call.data == "get_url")
 def get_url_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
-    bot.register_next_step_handler(msg, process_get_url_step)
 
     # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
     bot.send_message(call.message.chat.id, reply_markup=keyboard)
+
+    bot.register_next_step_handler(msg, process_get_url_step)
 
 def process_search_step(message, prompt_message_id):
     if message.text.startswith('/'):
@@ -317,6 +318,7 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
 
 
 
