@@ -1,0 +1,8 @@
+*.env
+*.log
+*venv
+*__pycache__
+*whitelist.txt
+files
+*.swp
+/.vs
