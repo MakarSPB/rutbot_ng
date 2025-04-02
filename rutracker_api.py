@@ -196,3 +196,4 @@ class RutrackerAPI:
         except Exception as e:
             logging.error(f"Ошибка при получении заголовка страницы: {e}")
             return None
+

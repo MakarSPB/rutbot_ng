@@ -51,3 +51,4 @@ def get_user_count(whitelist_file):
     except Exception as e:
         logging.error(f"Ошибка при подсчете количества пользователей: {e}")
         return 0
+
