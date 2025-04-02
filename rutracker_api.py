@@ -183,3 +183,16 @@ class RutrackerAPI:
         except Exception as e:
             logging.error(f"Ошибка при проверке наличия записи в base.csv: {e}")
             return False
+
+    def get_title_from_url(self, url):
+        try:
+            response = self.session.get(url, proxies=self.proxies)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                title_tag = soup.find('title')
+                if title_tag:
+                    return title_tag.text
+            return None
+        except Exception as e:
+            logging.error(f"Ошибка при получении заголовка страницы: {e}")
+            return None
