@@ -89,7 +89,7 @@ whitelist = load_whitelist(whitelist_file)
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
-    keyboard.add(InlineKeyboardButton("URL", callback_data="get_url"))
+    keyboard.add(InlineKeyboardButton("🔗URL c rutracker", callback_data="get_url"))
     bot.send_message(chat_id, text, reply_markup=keyboard)
 
 def send_message_without_search_button(chat_id, text):
