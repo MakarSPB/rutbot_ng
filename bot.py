@@ -293,7 +293,7 @@ def download_torrent(call):
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-    send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
+    send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте кнопки ниже для нового поиска или загрузки файла по ссылке.")
 
 # Запуск бота
 if __name__ == "__main__":
