@@ -89,6 +89,7 @@ whitelist = load_whitelist(whitelist_file)
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
+    keyboard.add(InlineKeyboardButton("URL", callback_data="get_url"))
     bot.send_message(chat_id, text, reply_markup=keyboard)
 
 def send_message_without_search_button(chat_id, text):
@@ -125,6 +126,15 @@ def search_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step)
 
+@bot.callback_query_handler(func=lambda call: call.data == "get_url")
+def get_url_prompt(call):
+    if call.message.chat.id not in whitelist:
+        log_unauthorized_access(call.message.chat.id)
+        send_message_without_search_button(call.message.chat.id, "Доступ запрещен.")
+        return
+    msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
+    bot.register_next_step_handler(msg, process_get_url_step)
+
 def process_search_step(message):
     if message.chat.id not in whitelist:
         log_unauthorized_access(message.chat.id)
@@ -132,6 +142,21 @@ def process_search_step(message):
         return
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     search_movie_internal(message, message.text)
+
+def process_get_url_step(message):
+    if message.chat.id not in whitelist:
+        log_unauthorized_access(message.chat.id)
+        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+        return
+    url = message.text
+    bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    status_message = bot.send_message(message.chat.id, "⏳ Загружаю торрент-файл... Пожалуйста, подождите.")
+    torrent_content = rutracker_api.download_torrent_by_url(url)
+    if torrent_content:
+        bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
+        bot.send_document(message.chat.id, torrent_content, visible_file_name="downloaded.torrent", caption="✅ Вот ваш торрент-файл!")
+    else:
+        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
