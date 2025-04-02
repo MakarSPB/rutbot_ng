@@ -129,7 +129,7 @@ def get_url_command(message):
     # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
+    bot.send_message(message.chat.id, reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
@@ -148,7 +148,7 @@ def get_url_prompt(call):
     # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(call.message.chat.id, reply_markup=keyboard)
+    bot.send_message(call.message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
 
     bot.register_next_step_handler(msg, process_get_url_step)
 
@@ -318,8 +318,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
-
-
-
-
