@@ -2,6 +2,7 @@ import os
 import re
 import telebot
 import logging
+import requests
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist
@@ -183,6 +184,25 @@ def get_user_count(whitelist_file):
         logging.error(f"Ошибка при подсчете количества пользователей: {e}")
         return 0
 
+def download_torrent_by_url(url, save_directory):
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+
+        # Извлечение имени файла из URL
+        filename = url.split('/')[-1]
+        file_path = os.path.join(save_directory, filename)
+
+        with open(file_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+
+        logging.info(f"Торрент-файл успешно загружен: {file_path}")
+        return file_path
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
+        return None
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if message.chat.id not in whitelist:
@@ -357,21 +377,18 @@ def download_torrent(call):
         text="⏳ Скачиваю торрент-файл... Пожалуйста, подождите."
     )
 
-    torrent_data = rutracker_api.get_torrent(topic_id)
+    torrent_url = f"https://rutracker.org/forum/dl.php?t={topic_id}"
+    file_path = download_torrent_by_url(torrent_url, SAVE_DIRECTORY)
 
-    if torrent_data:
-        file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
-        with open(file_path, 'wb') as f:
-            f.write(torrent_data)
-        os.chmod(file_path, 0o755)
-
+    if file_path:
         bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-        bot.send_document(
-            call.message.chat.id,
-            torrent_data,
-            visible_file_name=f"rutracker_{topic_id}.torrent",
-            caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex"
-        )
+        with open(file_path, 'rb') as torrent_file:
+            bot.send_document(
+                call.message.chat.id,
+                torrent_file,
+                visible_file_name=f"rutracker_{topic_id}.torrent",
+                caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex"
+            )
         send_message_with_search_button(call.message.chat.id, "✅ Файл успешно сохранён на сервер.")
     else:
         bot.edit_message_text(
@@ -390,4 +407,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
