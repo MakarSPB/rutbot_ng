@@ -18,17 +18,39 @@ def get_user_count(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         return sum(1 for line in f if line.strip())
 
-def load_movies(file_path):
-    movies = set()
+def get_movie_count(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        return sum(1 for row in reader)
+
+def log_search_result(file_path, title, forbidden_words, forbidden_patterns):
+    title = title.strip().lower()
     with open(file_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            movies.add(row['title'].strip().lower())
-    return movies
+            if row['title'].strip().lower() == title:
+                return False
 
-def save_movie(file_path, title, forbidden):
     with open(file_path, 'a', encoding='utf-8', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow([title, forbidden])
+        writer.writerow([title])
+    return True
 
+def is_query_already_searched(file_path, query):
+    query = query.strip().lower()
+    with open(file_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['title'].strip().lower() == query:
+                return True
+    return False
+
+def is_title_already_logged(file_path, title):
+    title = title.strip().lower()
+    with open(file_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['title'].strip().lower() == title:
+                return True
+    return False
 
