@@ -349,7 +349,7 @@ def check_base_file_updates():
     with open(base_file, 'r') as f:
         last_lines = set(f.readlines())
     while True:
-        time.sleep(60)  # Проверка каждые 60 секунд
+        time.sleep(15)  # Проверка каждые 15 секунд
         current_modified_time = os.path.getmtime(base_file)
         if current_modified_time != last_modified_time:
             last_modified_time = current_modified_time
