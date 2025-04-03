@@ -15,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -130,18 +130,6 @@ def get_url_command(message):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
     bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
-def get_url_command(message):
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
-        return
-    msg = bot.send_message(message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
-    bot.register_next_step_handler(msg, process_get_url_step)
-
-    # Добавление кнопки "Отмена"
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
@@ -207,7 +195,10 @@ def process_get_url_step(message):
         else:
             bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
     else:
-        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
+        # Добавление кнопки "Отмена"
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
+        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
@@ -318,8 +309,10 @@ def download_torrent(call):
         # Добавление кнопок поиска после отправки торрент-файла
         send_message_with_search_button(call.message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
     else:
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.")
-        send_message_with_search_button(call.message.chat.id, "❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.")
+        # Добавление кнопки "Отмена"
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):
@@ -330,4 +323,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
