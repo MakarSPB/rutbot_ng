@@ -95,7 +95,7 @@ def log_unauthorized_access(user_id):
 
 def check_access(chat_id):
     logging.info(f"Проверка доступа для пользователя: {chat_id}")
-    if chat_id not in whitelist:
+    if str(chat_id) not in whitelist:
         log_unauthorized_access(chat_id)
         send_message_without_search_button(chat_id, "Доступ запрещен.")
         logging.info(f"Доступ запрещен для пользователя: {chat_id}")
@@ -238,7 +238,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\д*)', size_str)
+                match = re.search(r'(\д+[.,]?\д*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -258,7 +258,7 @@ def search_movie_internal(message, query):
 
     result_text = f"Найдено {len(results)} результатов по запросу '{query}' ({min_file_size_gb}-{max_file_size_gb} ГБ):\n\n"
     for idx, result in enumerate(results, 1):
-        result_text += f"{idx}. {result['title']}\n   Размер: {result['size']}, Сиды: {result['seeders']}\n\n"
+        result_text += f"{idx}. {result['title']}\н   Размер: {result['size']}, Сиды: {result['seeders']}\н\n"
 
     markup = InlineKeyboardMarkup()
     for idx, result in enumerate(results, 1):
@@ -326,5 +326,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
-
