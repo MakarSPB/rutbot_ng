@@ -119,6 +119,8 @@ def send_info(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
+    if not check_access(call.message.chat.id):
+        return
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step, msg.message_id)
 
@@ -129,6 +131,8 @@ def search_prompt(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_url")
 def get_url_prompt(call):
+    if not check_access(call.message.chat.id):
+        return
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
 
     # Добавление кнопки "Отмена"
@@ -319,7 +323,10 @@ def download_torrent(call):
     except Exception as e:
         logging.error(f"Неизвестная ошибка при загрузке торрент-файла: {e}")
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Неизвестная ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
-       
+        # Добавление кнопки "Отмена"
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):
@@ -330,4 +337,6 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
+
 
