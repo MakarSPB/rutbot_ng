@@ -3,25 +3,25 @@ from telebot import TeleBot
 
 subscribers_file = 'subscribers.txt'
 
-# Загрузка подписчиков из файла
+# Р—Р°РіСЂСѓР·РєР° РїРѕРґРїРёСЃС‡РёРєРѕРІ РёР· С„Р°Р№Р»Р°
 def load_subscribers():
     with open(subscribers_file, 'r') as f:
         subscribers = set(line.strip() for line in f if line.strip())
-    save_subscribers(subscribers)  # Сохранение для удаления дубликатов
+    save_subscribers(subscribers)  # РЎРѕС…СЂР°РЅРµРЅРёРµ РґР»СЏ СѓРґР°Р»РµРЅРёСЏ РґСѓР±Р»РёРєР°С‚РѕРІ
     return subscribers
 
-# Сохранение подписчиков в файл
+# РЎРѕС…СЂР°РЅРµРЅРёРµ РїРѕРґРїРёСЃС‡РёРєРѕРІ РІ С„Р°Р№Р»
 def save_subscribers(subscribers):
     with open(subscribers_file, 'w') as f:
         for subscriber in subscribers:
             f.write(f"{subscriber}\n")
 
-# Проверка статуса подписок
+# РџСЂРѕРІРµСЂРєР° СЃС‚Р°С‚СѓСЃР° РїРѕРґРїРёСЃРѕРє
 def check_subscriptions(bot: TeleBot, subscribers):
     for subscriber in list(subscribers):
         try:
-            bot.send_message(subscriber, "Проверка статуса подписки.")
+            bot.send_message(subscriber, "РџСЂРѕРІРµСЂРєР° СЃС‚Р°С‚СѓСЃР° РїРѕРґРїРёСЃРєРё.")
         except Exception as e:
-            logging.error(f"Ошибка при проверке статуса подписки для {subscriber}: {e}")
+            logging.error(f"РћС€РёР±РєР° РїСЂРё РїСЂРѕРІРµСЂРєРµ СЃС‚Р°С‚СѓСЃР° РїРѕРґРїРёСЃРєРё РґР»СЏ {subscriber}: {e}")
             subscribers.discard(subscriber)
     save_subscribers(subscribers)
