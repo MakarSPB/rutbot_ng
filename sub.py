@@ -20,7 +20,7 @@ def save_subscribers(subscribers):
 def check_subscriptions(bot: TeleBot, subscribers):
     for subscriber in list(subscribers):
         try:
-            bot.send_message(subscriber, "Проверка статуса подписки.")
+            bot.send_chat_action(subscriber, 'typing')  # Проверка доступности пользователя без отправки сообщения
         except Exception as e:
             logging.error(f"Ошибка при проверке статуса подписки для {subscriber}: {e}")
             subscribers.discard(subscriber)
