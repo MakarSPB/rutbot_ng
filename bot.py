@@ -64,7 +64,7 @@ max_results = int(os.getenv('MAX_RESULTS'))
 # Генерация комбинаций слов исключений с годами
 def generate_forbidden_patterns(forbidden_words):
     years = [str(year) for year in range(1940, 2031)]
-    return [f"{word} {year}" for word in forbidden_words for year in years] + [f"{year} {word}" for word in forbidden_words for year in years]
+    return [f"{word} {year}" for word in forbidden_words for year in years] + [f"{year} {word}" for word in forbidden_words for year in годах]
 
 forbidden_patterns = generate_forbidden_patterns(forbidden_words)
 
@@ -89,7 +89,6 @@ whitelist = load_whitelist(whitelist_file)
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
-    keyboard.add(InlineKeyboardButton("🔗 URL c rutracker", callback_data="get_url"))
     bot.send_message(chat_id, text, reply_markup=keyboard)
 
 def send_message_without_search_button(chat_id, text):
@@ -120,18 +119,6 @@ def send_info(message):
     user_count = get_user_count(whitelist_file)
     bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
 
-@bot.message_handler(commands=['get'])
-def get_url_command(message):
-    if not check_access(message.chat.id):
-        return
-    msg = bot.send_message(message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
-    bot.register_next_step_handler(msg, process_get_url_step)
-
-    # Добавление кнопки "Отмена"
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
-
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
@@ -142,17 +129,6 @@ def search_prompt(call):
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
     bot.send_message(call.message.chat.id, "Вы можете отменить поиск, нажав кнопку ниже.", reply_markup=keyboard)
 
-@bot.callback_query_handler(func=lambda call: call.data == "get_url")
-def get_url_prompt(call):
-    msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
-
-    # Добавление кнопки "Отмена"
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(call.message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
-
-    bot.register_next_step_handler(msg, process_get_url_step)
-
 def process_search_step(message, prompt_message_id):
     if message.text.startswith('/'):
         send_message_with_search_button(message.chat.id, "Пожалуйста, укажите название фильма без команды.")
@@ -160,50 +136,6 @@ def process_search_step(message, prompt_message_id):
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     bot.delete_message(chat_id=message.chat.id, message_id=prompt_message_id)
     search_movie_internal(message, message.text)
-
-def process_get_url_step(message):
-    if message.text.startswith('/'):
-        send_message_with_search_button(message.chat.id, "Пожалуйста, отправьте ссылку без команды.")
-        return
-    url = message.text
-    bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    status_message = bot.send_message(message.chat.id, "⏳ Загружаю торрент-файл... Пожалуйста, подождите.")
-    try:
-        torrent_content = rutracker_api.download_torrent_by_url(url)
-        if torrent_content:
-            # Извлечение id топика из URL
-            topic_id_match = re.search(r't=(\d+)', url)
-            if topic_id_match:
-                topic_id = topic_id_match.group(1)
-                file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
-                with open(file_path, 'wb') as f:
-                    f.write(torrent_content)
-                os.chmod(file_path, 0o755)
-                bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
-                bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
-                
-                # Логирование информации о загруженном файле
-                logging.info(f"Торрент-файл загружен: {file_path}")
-
-                # Извлечение заголовка страницы
-                title = rutracker_api.get_title_from_url(url)
-                if title:
-                    title = title.split('/')[0].strip()
-                    # Логирование результата в BASE_FILE
-                    if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
-                        bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
-                # Добавление кнопок поиска после отправки торрент-файла
-                send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
-            else:
-                bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
-        else:
-            raise ValueError("Ошибка при загрузке торрент-файла")
-    except Exception as e:
-        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
-        # Добавление кнопки "Отмена"
-        keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
@@ -328,3 +260,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
