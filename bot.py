@@ -347,7 +347,7 @@ def cancel_search(call):
 def check_base_file_updates():
     last_hash = None
     while True:
-        time.sleep(60)  # Проверка каждые 60 секунд
+        time.sleep(30)  # Проверка каждые 30 секунд
         try:
             with open(base_file, 'rb') as f:
                 current_hash = hashlib.md5(f.read()).hexdigest()
