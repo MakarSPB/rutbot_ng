@@ -103,8 +103,7 @@ def check_access(chat_id):
 
 def log_title_to_base_file(base_file, title, forbidden_words):
     title = title.split('/')[0].strip()
-    title_in_quotes = f'"{title}"'
-    if not log_search_result(base_file, title_in_quotes, forbidden_words, []):
+    if not log_search_result(base_file, title, forbidden_words, []):
         return False
     return True
 
@@ -160,7 +159,7 @@ def process_get_url_step(message):
     status_message = bot.send_message(message.chat.id, "⏳ Загружаю торрент-файл... Пожалуйста, подождите.")
     try:
         torrent_content = rutracker_api.download_torrent_by_url(url)
-        if (torrent_content):
+        if torrent_content:
             # Извлечение id топика из URL
             topic_id_match = re.search(r't=(\d+)', url)
             if topic_id_match:
