@@ -315,7 +315,12 @@ if __name__ == "__main__":
 
 # Обновленная функция log_search_result
 def log_search_result(base_file, title, forbidden_words, additional_info):
-    with open(base_file, 'a', encoding='utf-8') as f:
-        # Добавляем кавычки вокруг заголовка
-        f.write(f'"{title}"\n')
-    return True
+   # Проверка на запрещенные слова
+   for word in forbidden_words:
+       if word.lower() in title.lower():
+           return False
+
+   with open(base_file, 'a', encoding='utf-8') as f:
+       # Добавляем кавычки вокруг заголовка
+       f.write(f'"{title}"\n')
+   return True
