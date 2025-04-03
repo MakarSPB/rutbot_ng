@@ -17,7 +17,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -101,6 +101,12 @@ def check_access(chat_id):
         return False
     return True
 
+def log_title_to_base_file(base_file, title, forbidden_words):
+    title = title.split('/')[0].strip()
+    if not log_search_result(base_file, title, forbidden_words, []):
+        return False
+    return True
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if not check_access(message.chat.id):
@@ -171,9 +177,7 @@ def process_get_url_step(message):
                 # Извлечение заголовка страницы
                 title = rutracker_api.get_title_from_url(url)
                 if title:
-                    title = title.split('/')[0].strip()
-                    # Логирование результата в BASE_FILE
-                    if not log_search_result(base_file, title, forbidden_words, []):
+                    if not log_title_to_base_file(base_file, title, forbidden_words):
                         bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 # Добавление кнопок поиска после отправки торрент-файла
                 send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
@@ -270,7 +274,7 @@ def download_torrent(call):
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
             title = result["title"].split('/')[0].strip()
-            if not log_search_result(base_file, title, forbidden_words, []):
+            if not log_title_to_base_file(base_file, title, forbidden_words):
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
@@ -312,15 +316,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
-# Обновленная функция log_search_result
-def log_search_result(base_file, title, forbidden_words, additional_info):
-   # Проверка на запрещенные слова
-   for word in forbidden_words:
-       if word.lower() in title.lower():
-           return False
-
-   with open(base_file, 'a', encoding='utf-8') as f:
-       # Добавляем кавычки вокруг заголовка
-       f.write(f'"{title}"\n')
-   return True
