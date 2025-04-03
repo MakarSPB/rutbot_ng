@@ -26,7 +26,7 @@ def get_movie_count(file_path):
         return sum(1 for row in reader)
 
 def log_search_result(file_path, title, forbidden_words, forbidden_patterns):
-    title = title.strip().lower()
+    title = title.split('/')[0].strip().lower()
     with open(file_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:

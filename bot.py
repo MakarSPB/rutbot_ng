@@ -238,7 +238,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\д*)', size_str)
+                match = re.search(r'(\d+[.,]?\d*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -258,7 +258,7 @@ def search_movie_internal(message, query):
 
     result_text = f"Найдено {len(results)} результатов по запросу '{query}' ({min_file_size_gb}-{max_file_size_gb} ГБ):\n\n"
     for idx, result in enumerate(results, 1):
-        result_text += f"{idx}. {result['title']}\н   Размер: {result['size']}, Сиды: {result['seeders']}\н\n"
+        result_text += f"{idx}. {result['title']}\n   Размер: {result['size']}, Сиды: {result['seeders']}\n\n"
 
     markup = InlineKeyboardMarkup()
     for idx, result in enumerate(results, 1):
@@ -301,7 +301,7 @@ def download_torrent(call):
             os.chmod(file_path, 0o755)
 
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-            bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\н\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+            bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
 
             # Логирование информации о загруженном файле
             logging.info(f"Торрент-файл загружен: {file_path}")
