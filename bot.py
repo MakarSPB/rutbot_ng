@@ -17,7 +17,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -365,7 +365,7 @@ def notify_subscribers(new_lines):
     new_lines_text = ''.join(new_lines)
     for chat_id in subscribers:
         keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("Поиск", callback_data="/start"))
+        keyboard.add(InlineKeyboardButton("Поиск", callback_data="start"))
         bot.send_message(chat_id, f"Обновления в базе!\nДобавлены:\n{new_lines_text}", reply_markup=keyboard)
 
 # Запуск проверки обновлений в отдельном потоке
