@@ -73,7 +73,7 @@ forbidden_patterns = generate_forbidden_patterns(forbidden_words)
 
 # Инициализация бота и API
 TOKEN = os.getenv('TELEGRAM_TOKEN')
-RUTRACKER_USERNAME = os.getenv('RUTRACKER_USERNAME')
+RUTRACKER_USERNAME = os.getenv('RUTРRACKER_USERNAME')
 RUTRACKER_PASSWORD = os.getenv('RUTRACKER_PASSWORD')
 SAVE_DIRECTORY = os.getenv('SAVE_DIRECTORY')
 
@@ -137,21 +137,18 @@ def send_info(message):
     user_count = get_user_count(whitelist_file)
     bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
 
-@bot.message_handler(commands=['subscribe'])
-def subscribe(message):
+@bot.message_handler(commands=['sub'])
+def sub(message):
     if not check_access(message.chat.id):
         return
-    subscribers.add(message.chat.id)
-    save_subscribers()
-    bot.send_message(message.chat.id, "Вы подписались на уведомления об обновлениях.")
-
-@bot.message_handler(commands=['unsubscribe'])
-def unsubscribe(message):
-    if not check_access(message.chat.id):
-        return
-    subscribers.discard(message.chat.id)
-    save_subscribers()
-    bot.send_message(message.chat.id, "Вы отписались от уведомлений об обновлениях.")
+    if message.chat.id in subscribers:
+        subscribers.discard(message.chat.id)
+        save_subscribers()
+        bot.send_message(message.chat.id, "Вы отписались от уведомлений об обновлениях.")
+    else:
+        subscribers.add(message.chat.id)
+        save_subscribers()
+        bot.send_message(message.chat.id, "Вы подписались на уведомления об обновлениях.")
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
@@ -368,4 +365,3 @@ update_thread.start()
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
