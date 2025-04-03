@@ -97,7 +97,9 @@ def check_access(chat_id):
     if chat_id not in whitelist:
         log_unauthorized_access(chat_id)
         send_message_without_search_button(chat_id, "Доступ запрещен.")
+        logging.info(f"Доступ запрещен для пользователя: {chat_id}")
         return False
+    logging.info(f"Доступ разрешен для пользователя: {chat_id}")
     return True
 
 @bot.message_handler(commands=['start'])
@@ -314,3 +316,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+

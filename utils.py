@@ -12,7 +12,9 @@ def ensure_file_exists(file_path, default_content=""):
 
 def load_whitelist(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
-        return set(line.strip() for line in f if line.strip())
+        whitelist = set(line.strip() for line in f if line.strip())
+    print(f"Загружен белый список: {whitelist}")
+    return whitelist
 
 def get_user_count(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -53,3 +55,4 @@ def is_title_already_logged(file_path, title):
             if row['title'].strip().lower() == title:
                 return True
     return False
+
