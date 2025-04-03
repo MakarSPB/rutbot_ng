@@ -64,7 +64,7 @@ max_results = int(os.getenv('MAX_RESULTS'))
 # Генерация комбинаций слов исключений с годами
 def generate_forbidden_patterns(forbidden_words):
     years = [str(year) for year in range(1940, 2031)]
-    return [f"{word} {year}" for word in forbidden_words for year in years] + [f"{year} {word}" for word in forbidden_words for year in годах]
+    return [f"{word} {year}" for word in forbidden_words for year in years] + [f"{year} {word}" for word in forbidden_words for year in years]
 
 forbidden_patterns = generate_forbidden_patterns(forbidden_words)
 
