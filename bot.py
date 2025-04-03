@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
 from rutracker_api import RutrackerAPI
+import requests
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -179,8 +180,15 @@ def process_get_url_step(message):
                 bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
         else:
             raise ValueError("Ошибка при загрузке торрент-файла")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Сетевая ошибка при загрузке торрент-файла: {e}")
+        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Сетевая ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
+    except ValueError as e:
+        logging.error(f"Ошибка при обработке торрент-файла: {e}")
+        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при обработке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
     except Exception as e:
-        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
+        logging.error(f"Неизвестная ошибка при загрузке торрент-файла: {e}")
+        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Неизвестная ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
         # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
@@ -293,12 +301,19 @@ def download_torrent(call):
             send_message_with_search_button(call.message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
         else:
             raise ValueError("Ошибка при загрузке торрент-файла")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Сетевая ошибка при загрузке торрент-файла: {e}")
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Сетевая ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
+    except ValueError as e:
+        logging.error(f"Ошибка при обработке торрент-файла: {e}")
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Ошибка при обработке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
     except Exception as e:
-        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
+        logging.error(f"Неизвестная ошибка при загрузке торрент-файла: {e}")
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Неизвестная ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
         # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):
