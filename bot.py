@@ -15,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -238,7 +238,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\д+[.,]?\д*)', size_str)
+                match = re.search(r'(\d+[.,]?\d*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -258,7 +258,7 @@ def search_movie_internal(message, query):
 
     result_text = f"Найдено {len(results)} результатов по запросу '{query}' ({min_file_size_gb}-{max_file_size_gb} ГБ):\n\n"
     for idx, result in enumerate(results, 1):
-        result_text += f"{idx}. {result['title']}\н   Размер: {result['size']}, Сиды: {result['seeders']}\н\n"
+        result_text += f"{idx}. {result['title']}\n   Размер: {result['size']}, Сиды: {result['seeders']}\n\n"
 
     markup = InlineKeyboardMarkup()
     for idx, result in enumerate(results, 1):
