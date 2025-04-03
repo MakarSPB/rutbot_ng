@@ -2,12 +2,10 @@ import os
 import re
 import telebot
 import logging
-import time
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
 from rutracker_api import RutrackerAPI
-from threading import Thread
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -173,7 +171,7 @@ def process_get_url_step(message):
                 if title:
                     title = title.split('/')[0].strip()
                     # Логирование результата в BASE_FILE
-                    if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
+                    if not rutracker_api.log_search_result(base_file, title, forbidden_words):
                         bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 # Добавление кнопок поиска после отправки торрент-файла
                 send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
@@ -224,7 +222,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\д+[.,]?\д*)', size_str)
+                match = re.search(r'(\d+[.,]?\d*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -269,7 +267,7 @@ def download_torrent(call):
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
+            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words):
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
@@ -311,5 +309,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
-
