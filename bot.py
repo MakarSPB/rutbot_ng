@@ -2,12 +2,12 @@ import os
 import re
 import telebot
 import logging
-import sqlite3
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_user_count
 from rutracker_api import RutrackerAPI
 import requests
+from sql import init_db, add_movie, is_movie_in_db, get_movie_count
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -64,42 +64,6 @@ forbidden_words = os.getenv('FORBIDDEN_WORDS').split(',')
 max_results = int(os.getenv('MAX_RESULTS'))
 
 # Инициализация базы данных
-def init_db(db_path):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS movies (
-            id INTEGER PRIMARY KEY,
-            title TEXT NOT NULL,
-            forbidden INTEGER DEFAULT 0
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-def add_movie(db_path, title, forbidden):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO movies (title, forbidden) VALUES (?, ?)', (title, forbidden))
-    conn.commit()
-    conn.close()
-
-def is_movie_in_db(db_path, title):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT 1 FROM movies WHERE title = ?', (title,))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
-
-def get_movie_count(db_path):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM movies')
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
-
 init_db(db_path)
 
 # Инициализация бота и API
@@ -271,7 +235,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\d*)', size_str)
+                match = re.search(r'(\d+[.,]?\д*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -367,4 +331,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
