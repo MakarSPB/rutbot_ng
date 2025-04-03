@@ -17,7 +17,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -92,10 +92,12 @@ whitelist = load_whitelist(whitelist_file)
 # Загрузка подписчиков из файла
 def load_subscribers():
     with open(subscribers_file, 'r') as f:
-        return set(line.strip() for line in f if line.strip())
+        subscribers = set(line.strip() for line in f if line.strip())
+    save_subscribers(subscribers)  # Сохранение для удаления дубликатов
+    return subscribers
 
 # Сохранение подписчиков в файл
-def save_subscribers():
+def save_subscribers(subscribers):
     with open(subscribers_file, 'w') as f:
         for subscriber in subscribers:
             f.write(f"{subscriber}\n")
@@ -143,11 +145,11 @@ def sub(message):
         return
     if message.chat.id in subscribers:
         subscribers.discard(message.chat.id)
-        save_subscribers()
+        save_subscribers(subscribers)
         bot.send_message(message.chat.id, "Вы отписались от уведомлений об обновлениях.")
     else:
         subscribers.add(message.chat.id)
-        save_subscribers()
+        save_subscribers(subscribers)
         bot.send_message(message.chat.id, "Вы подписались на уведомления об обновлениях.")
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
@@ -374,3 +376,5 @@ update_thread.start()
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
+
