@@ -1,4 +1,3 @@
-# sql.py
 import sqlite3
 
 def init_db(db_path):
@@ -36,3 +35,4 @@ def get_movie_count(db_path):
     count = cursor.fetchone()[0]
     conn.close()
     return count
+
