@@ -23,7 +23,7 @@ def add_movie(db_path, title, forbidden):
 def is_movie_in_db(db_path, title):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute('SELECT 1 FROM movies WHERE title = ?', (title,))
+    cursor.execute('SELECT 1 FROM movies WHERE title = ?', (title.strip(),))
     result = cursor.fetchone()
     conn.close()
     return result is not None
