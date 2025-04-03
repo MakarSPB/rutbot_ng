@@ -55,3 +55,4 @@ def is_title_already_logged(file_path, title):
             if row['title'].strip().lower() == title:
                 return True
     return False
+
