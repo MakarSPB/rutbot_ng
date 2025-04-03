@@ -17,7 +17,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -32,7 +32,7 @@ def setup_logging():
 
     logging.basicConfig(level=log_level, format=log_format, handlers=handlers)
 
-    if enable_unauthorized_logging and unauthorized_log_file:
+    if enable_unauthorized_logging in unauthorized_log_file:
         unauthorized_handler = logging.FileHandler(unauthorized_log_file)
         unauthorized_handler.setLevel(logging.INFO)
         unauthorized_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
@@ -259,7 +259,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\d*)', size_str)
+                match = re.search(r'(\д+[.,]?\д*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -374,4 +374,5 @@ update_thread.start()
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
 
