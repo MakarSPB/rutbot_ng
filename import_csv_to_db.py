@@ -4,14 +4,14 @@ import sqlite3
 from dotenv import load_dotenv
 from sql import init_db, add_movie
 
-# Загрузка переменных окружения
+# Р—Р°РіСЂСѓР·РєР° РїРµСЂРµРјРµРЅРЅС‹С… РѕРєСЂСѓР¶РµРЅРёСЏ
 load_dotenv()
 
-# Получение пути к базе данных из переменных окружения
+# РџРѕР»СѓС‡РµРЅРёРµ РїСѓС‚Рё Рє Р±Р°Р·Рµ РґР°РЅРЅС‹С… РёР· РїРµСЂРµРјРµРЅРЅС‹С… РѕРєСЂСѓР¶РµРЅРёСЏ
 db_path = os.getenv('DB_PATH')
-csv_file_path = 'base.csv'  # Путь к файлу base.csv
+csv_file_path = 'base.csv'  # РџСѓС‚СЊ Рє С„Р°Р№Р»Сѓ base.csv
 
-# Инициализация базы данных
+# РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р±Р°Р·С‹ РґР°РЅРЅС‹С…
 init_db(db_path)
 
 def import_csv_to_db(db_path, csv_file_path):
@@ -19,14 +19,14 @@ def import_csv_to_db(db_path, csv_file_path):
         reader = csv.DictReader(csvfile)
         for row in reader:
             title = row['title']
-            forbidden = 0  # Установите значение forbidden по умолчанию
+            forbidden = 0  # РЈСЃС‚Р°РЅРѕРІРёС‚Рµ Р·РЅР°С‡РµРЅРёРµ forbidden РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
             add_movie(db_path, title, forbidden)
-            print(f"Импортирован фильм: {title}")
+            print(f"РРјРїРѕСЂС‚РёСЂРѕРІР°РЅ С„РёР»СЊРј: {title}")
 
 if __name__ == "__main__":
     if not os.path.exists(csv_file_path):
-        print(f"Файл {csv_file_path} не найден.")
+        print(f"Р¤Р°Р№Р» {csv_file_path} РЅРµ РЅР°Р№РґРµРЅ.")
     else:
         import_csv_to_db(db_path, csv_file_path)
-        print("Импорт завершен.")
+        print("РРјРїРѕСЂС‚ Р·Р°РІРµСЂС€РµРЅ.")
 
