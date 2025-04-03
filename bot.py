@@ -17,7 +17,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -269,7 +269,8 @@ def download_torrent(call):
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if not log_search_result(base_file, result["title"], forbidden_words, []):
+            title = result["title"].split('/')[0].strip()
+            if not log_search_result(base_file, title, forbidden_words, []):
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
@@ -307,12 +308,6 @@ def cancel_search(call):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
     send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
 
-# Обновленная функция log_search_result
-def log_search_result(base_file, title, forbidden_words, additional_info):
-    with open(base_file, 'a', encoding='utf-8') as f:
-        # Добавляем кавычки вокруг заголовка
-        f.write(f'"{title}"\n')
-    return True
 # Запуск бота
 if __name__ == "__main__":
     logging.info("Бот запущен")
