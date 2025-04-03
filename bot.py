@@ -307,6 +307,12 @@ def cancel_search(call):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
     send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
 
+# Обновленная функция log_search_result
+def log_search_result(base_file, title, forbidden_words, additional_info):
+    with open(base_file, 'a', encoding='utf-8') as f:
+        # Добавляем кавычки вокруг заголовка
+        f.write(f'"{title}"\n')
+    return True
 # Запуск бота
 if __name__ == "__main__":
     logging.info("Бот запущен")
