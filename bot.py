@@ -73,7 +73,7 @@ forbidden_patterns = generate_forbidden_patterns(forbidden_words)
 
 # Инициализация бота и API
 TOKEN = os.getenv('TELEGRAM_TOKEN')
-RUTRACKER_USERNAME = os.getenv('RUTРRACKER_USERNAME')
+RUTRACKER_USERNAME = os.getenv('RUTRACKER_USERNAME')
 RUTRACKER_PASSWORD = os.getenv('RUTRACKER_PASSWORD')
 SAVE_DIRECTORY = os.getenv('SAVE_DIRECTORY')
 
