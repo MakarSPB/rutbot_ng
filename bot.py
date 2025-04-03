@@ -364,7 +364,9 @@ def check_base_file_updates():
 def notify_subscribers(new_lines):
     new_lines_text = ''.join(new_lines)
     for chat_id in subscribers:
-        bot.send_message(chat_id, f"Обновления в базе!\nДобавлены:\n{new_lines_text}")
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(InlineKeyboardButton("Поиск", callback_data="start"))
+        bot.send_message(chat_id, f"Обновления в базе!\nДобавлены:\n{new_lines_text}", reply_markup=keyboard)
 
 # Запуск проверки обновлений в отдельном потоке
 update_thread = Thread(target=check_base_file_updates)
