@@ -120,18 +120,6 @@ def send_info(message):
     user_count = get_user_count(whitelist_file)
     bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
 
-@bot.message_handler(commands=['get'])
-def get_url_command(message):
-    if not check_access(message.chat.id):
-        return
-    msg = bot.send_message(message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
-    bot.register_next_step_handler(msg, process_get_url_step)
-
-    # Добавление кнопки "Отмена"
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-    bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
-
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
@@ -241,7 +229,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\д*)', size_str)
+                match = re.search(r'(\д+[.,]?\д*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -328,3 +316,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
