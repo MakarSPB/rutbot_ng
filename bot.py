@@ -312,3 +312,10 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
+# Обновленная функция log_search_result
+def log_search_result(base_file, title, forbidden_words, additional_info):
+    with open(base_file, 'a', encoding='utf-8') as f:
+        # Добавляем кавычки вокруг заголовка
+        f.write(f'"{title}"\n')
+    return True
