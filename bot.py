@@ -15,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -99,19 +99,22 @@ def log_unauthorized_access(user_id):
     if unauthorized_logger:
         unauthorized_logger.info(f"Неавторизованный доступ: {user_id}")
 
+def check_access(chat_id):
+    if chat_id not in whitelist:
+        log_unauthorized_access(chat_id)
+        send_message_without_search_button(chat_id, "Доступ запрещен.")
+        return False
+    return True
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+    if not check_access(message.chat.id):
         return
     send_message_with_search_button(message.chat.id, "Привет! Используй команду /f [название фильма]\nдля поиска или нажми кнопку ниже.\nМожно делать общий поиск по жанрам или годам\nПример: комедия 2024.")
 
 @bot.message_handler(commands=['info'])
 def send_info(message):
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+    if not check_access(message.chat.id):
         return
     movie_count = get_movie_count(base_file)
     user_count = get_user_count(whitelist_file)
@@ -119,9 +122,7 @@ def send_info(message):
 
 @bot.message_handler(commands=['get'])
 def get_url_command(message):
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+    if not check_access(message.chat.id):
         return
     msg = bot.send_message(message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
     bot.register_next_step_handler(msg, process_get_url_step)
@@ -167,34 +168,38 @@ def process_get_url_step(message):
     url = message.text
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     status_message = bot.send_message(message.chat.id, "⏳ Загружаю торрент-файл... Пожалуйста, подождите.")
-    torrent_content = rutracker_api.download_torrent_by_url(url)
-    if torrent_content:
-        # Извлечение id топика из URL
-        topic_id_match = re.search(r't=(\d+)', url)
-        if topic_id_match:
-            topic_id = topic_id_match.group(1)
-            file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
-            with open(file_path, 'wb') as f:
-                f.write(torrent_content)
-            os.chmod(file_path, 0o755)
-            bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
-            bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
-            
-            # Логирование информации о загруженном файле
-            logging.info(f"Торрент-файл загружен: {file_path}")
+    try:
+        torrent_content = rutracker_api.download_torrent_by_url(url)
+        if torrent_content:
+            # Извлечение id топика из URL
+            topic_id_match = re.search(r't=(\d+)', url)
+            if topic_id_match:
+                topic_id = topic_id_match.group(1)
+                file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
+                with open(file_path, 'wb') as f:
+                    f.write(torrent_content)
+                os.chmod(file_path, 0o755)
+                bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
+                bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+                
+                # Логирование информации о загруженном файле
+                logging.info(f"Торрент-файл загружен: {file_path}")
 
-            # Извлечение заголовка страницы
-            title = rutracker_api.get_title_from_url(url)
-            if title:
-                title = title.split('/')[0].strip()
-                # Логирование результата в BASE_FILE
-                if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
-                    bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
-            # Добавление кнопок поиска после отправки торрент-файла
-            send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
+                # Извлечение заголовка страницы
+                title = rutracker_api.get_title_from_url(url)
+                if title:
+                    title = title.split('/')[0].strip()
+                    # Логирование результата в BASE_FILE
+                    if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
+                        bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
+                # Добавление кнопок поиска после отправки торрент-файла
+                send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
+            else:
+                bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
         else:
-            bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
-    else:
+            raise ValueError("Ошибка при загрузке торрент-файла")
+    except Exception as e:
+        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
         # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
@@ -202,9 +207,7 @@ def process_get_url_step(message):
 
 @bot.message_handler(commands=['f'])
 def search_movie(message):
-    if message.chat.id not in whitelist:
-        log_unauthorized_access(message.chat.id)
-        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+    if not check_access(message.chat.id):
         return
     query = message.text.replace('/f', '').strip()
     if not query:
@@ -270,9 +273,7 @@ def search_movie_internal(message, query):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('download_'))
 def download_torrent(call):
-    if call.message.chat.id not in whitelist:
-        log_unauthorized_access(call.message.chat.id)
-        send_message_without_search_button(call.message.chat.id, "Доступ запрещён.")
+    if not check_access(call.message.chat.id):
         return
 
     data = call.data.replace('download_', '').split('_')
@@ -292,23 +293,27 @@ def download_torrent(call):
 
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="⏳ Скачиваю торрент-файл... Пожалуйста, подождите.")
 
-    torrent_data = rutracker_api.get_torrent(topic_id)
+    try:
+        torrent_data = rutracker_api.get_torrent(topic_id)
 
-    if torrent_data:
-        file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
-        with open(file_path, 'wb') as f:
-            f.write(torrent_data)
-        os.chmod(file_path, 0o755)
+        if torrent_data:
+            file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
+            with open(file_path, 'wb') as f:
+                f.write(torrent_data)
+            os.chmod(file_path, 0o755)
 
-        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-        bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+            bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
 
-        # Логирование информации о загруженном файле
-        logging.info(f"Торрент-файл загружен: {file_path}")
+            # Логирование информации о загруженном файле
+            logging.info(f"Торрент-файл загружен: {file_path}")
 
-        # Добавление кнопок поиска после отправки торрент-файла
-        send_message_with_search_button(call.message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
-    else:
+            # Добавление кнопок поиска после отправки торрент-файла
+            send_message_with_search_button(call.message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
+        else:
+            raise ValueError("Ошибка при загрузке торрент-файла")
+    except Exception as e:
+        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
         # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
