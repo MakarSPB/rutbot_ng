@@ -16,7 +16,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -173,7 +173,7 @@ def process_get_url_step(message):
                 # Извлечение заголовка страницы
                 title = rutracker_api.get_title_from_url(url)
                 if title:
-                    title = title.split('/')[0].strip()
+                    title = title.split('/')[0].strip().lower()
                     # Логирование результата в файл
                     if title not in movies:
                         save_movie(movies_file, title, 0)
@@ -204,7 +204,7 @@ def process_get_url_step(message):
 def search_movie(message):
     if not check_access(message.chat.id):
         return
-    query = message.text.replace('/f', '').strip()
+    query = message.text.replace('/f', '').strip().lower()
     if not query:
         send_message_with_search_button(message.chat.id, "Пожалуйста, укажите название фильма. Например: /f Матрица")
         return
@@ -272,7 +272,7 @@ def download_torrent(call):
         return
 
     data = call.data.replace('download_', '').split('_')
-    topic_id, query = data[0], '_'.join(data[1:])
+    topic_id, query = data[0], '_'.join(data[1:]).lower()
 
     if query in movies:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
@@ -281,9 +281,9 @@ def download_torrent(call):
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if result["title"] not in movies:
-                save_movie(movies_file, result["title"], 0)
-                movies.add(result["title"])
+            if result["title"].strip().lower() not in movies:
+                save_movie(movies_file, result["title"].strip().lower(), 0)
+                movies.add(result["title"].strip().lower())
             else:
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
@@ -319,10 +319,7 @@ def download_torrent(call):
     except Exception as e:
         logging.error(f"Неизвестная ошибка при загрузке торрент-файла: {e}")
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Неизвестная ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
-        # Добавление кнопки "Отмена"
-        keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
+       
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):

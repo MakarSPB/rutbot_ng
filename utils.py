@@ -23,11 +23,12 @@ def load_movies(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            movies.add(row['title'])
+            movies.add(row['title'].strip().lower())
     return movies
 
 def save_movie(file_path, title, forbidden):
     with open(file_path, 'a', encoding='utf-8', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([title, forbidden])
+
 
