@@ -4,7 +4,7 @@ import telebot
 import logging
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
+from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count, log_search_result, is_query_already_searched, is_title_already_logged
 from rutracker_api import RutrackerAPI
 
 # Загрузка переменных окружения
@@ -15,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -59,6 +59,7 @@ min_file_size_gb = float(os.getenv('MIN_FILE_SIZE_GB'))
 max_file_size_gb = float(os.getenv('MAX_FILE_SIZE_GB'))
 base_file = os.getenv('BASE_FILE')
 forbidden_words = os.getenv('FORBIDDEN_WORDS').split(',')
+forbidden_patterns = [re.compile(word, re.IGNORECASE) for word in forbidden_words]
 max_results = int(os.getenv('MAX_RESULTS'))
 
 # Инициализация бота и API
@@ -115,6 +116,8 @@ def send_info(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
+    if not check_access(call.message.chat.id):
+        return
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step, msg.message_id)
 
@@ -125,6 +128,8 @@ def search_prompt(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_url")
 def get_url_prompt(call):
+    if not check_access(call.message.chat.id):
+        return
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
 
     # Добавление кнопки "Отмена"
@@ -171,7 +176,7 @@ def process_get_url_step(message):
                 if title:
                     title = title.split('/')[0].strip()
                     # Логирование результата в BASE_FILE
-                    if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
+                    if not log_search_result(base_file, title, forbidden_words, forbidden_patterns):
                         bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 # Добавление кнопок поиска после отправки торрент-файла
                 send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
@@ -197,7 +202,7 @@ def search_movie(message):
     search_movie_internal(message, query)
 
 def search_movie_internal(message, query):
-    if rutracker_api.is_query_already_searched(base_file, query):
+    if is_query_already_searched(base_file, query):
         send_message_with_search_button(message.chat.id, "Файл уже есть на сервере.")
         return
 
@@ -222,7 +227,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\d*)', size_str)
+                match = re.search(r'(\d+[.,]?\д*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -260,14 +265,14 @@ def download_torrent(call):
     data = call.data.replace('download_', '').split('_')
     topic_id, query = data[0], '_'.join(data[1:])
 
-    if rutracker_api.is_title_already_logged(base_file, query):
+    if is_title_already_logged(base_file, query):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
         return
 
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
+            if not log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
@@ -309,3 +314,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
