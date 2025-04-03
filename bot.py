@@ -3,7 +3,6 @@ import re
 import telebot
 import logging
 import time
-import hashlib
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
@@ -345,30 +344,27 @@ def cancel_search(call):
 
 # Функция для проверки изменений в файле BASE_FILE
 def check_base_file_updates():
-    last_hash = None
+    last_modified_time = os.path.getmtime(base_file)
+    last_lines = set()
+    with open(base_file, 'r') as f:
+        last_lines = set(f.readlines())
     while True:
-        time.sleep(30)  # Проверка каждые 30 секунд
-        try:
-            with open(base_file, 'rb') as f:
-                current_hash = hashlib.md5(f.read()).hexdigest()
-            if last_hash is None:
-                last_hash = current_hash
-            elif current_hash != last_hash:
-                last_hash = current_hash
-                with open(base_file, 'r') as f:
-                    current_lines = f.readlines()
-                notify_subscribers(current_lines)
-        except Exception as e:
-            logging.error(f"Ошибка при проверке обновлений в файле BASE_FILE: {e}")
+        time.sleep(60)  # Проверка каждые 60 секунд
+        current_modified_time = os.path.getmtime(base_file)
+        if current_modified_time != last_modified_time:
+            last_modified_time = current_modified_time
+            with open(base_file, 'r') as f:
+                current_lines = set(f.readlines())
+            new_lines = current_lines - last_lines
+            if new_lines:
+                notify_subscribers(new_lines)
+            last_lines = current_lines
 
 # Функция для уведомления подписчиков
 def notify_subscribers(new_lines):
     new_lines_text = ''.join(new_lines)
     for chat_id in subscribers:
-        try:
-            bot.send_message(chat_id, f"Файл BASE_FILE был обновлён. Добавлены:\n{new_lines_text}")
-        except Exception as e:
-            logging.error(f"Ошибка при отправке уведомления подписчикам: {e}")
+        bot.send_message(chat_id, f"Файл BASE_FILE был обновлён. Добавлены:\n{new_lines_text}")
 
 # Запуск проверки обновлений в отдельном потоке
 update_thread = Thread(target=check_base_file_updates)
@@ -378,3 +374,4 @@ update_thread.start()
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
