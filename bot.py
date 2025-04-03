@@ -192,7 +192,7 @@ def process_get_url_step(message):
         torrent_content = rutracker_api.download_torrent_by_url(url)
         if torrent_content:
             # Извлечение id топика из URL
-            topic_id_match = re.search(r't=(\d+)', url)
+            topic_id_match = re.search(r't=(\д+)', url)
             if topic_id_match:
                 topic_id = topic_id_match.group(1)
                 file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
@@ -261,7 +261,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\d*)', size_str)
+                match = re.search(r'(\д+[.,]?\д*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
