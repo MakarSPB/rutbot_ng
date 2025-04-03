@@ -130,6 +130,18 @@ def get_url_command(message):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
     bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
+def get_url_command(message):
+    if message.chat.id not in whitelist:
+        log_unauthorized_access(message.chat.id)
+        send_message_without_search_button(message.chat.id, "Доступ запрещен.")
+        return
+    msg = bot.send_message(message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
+    bot.register_next_step_handler(msg, process_get_url_step)
+
+    # Добавление кнопки "Отмена"
+    keyboard = InlineKeyboardMarkup()
+    keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
+    bot.send_message(message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
