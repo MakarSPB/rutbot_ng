@@ -4,9 +4,8 @@ import telebot
 import logging
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_user_count, load_movies, save_movie
+from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
 from rutracker_api import RutrackerAPI
-import requests
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -16,7 +15,7 @@ def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
     log_file = os.getenv('LOG_FILE')
     use_console = os.getenv('USE_CONSOLE', 'false').lower() == 'true'
-    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
+    log_format = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     unauthorized_log_file = os.getenv('UNAUTHORIZED_LOG_FILE')
     enable_unauthorized_logging = os.getenv('ENABLE_UNAUTHORIZED_LOGGING', 'true').lower() == 'true'
 
@@ -48,7 +47,7 @@ setup_logging()
 required_env_vars = [
     'LOG_LEVEL', 'LOG_FILE', 'USE_CONSOLE', 'LOG_FORMAT', 'WHITELIST_FILE', 'TELEGRAM_TOKEN',
     'RUTRACKER_USERNAME', 'RUTRACKER_PASSWORD', 'SAVE_DIRECTORY', 'MIN_FILE_SIZE_GB', 'MAX_FILE_SIZE_GB',
-    'UNAUTHORIZED_LOG_FILE', 'FORBIDDEN_WORDS', 'MOVIES_FILE', 'MAX_RESULTS'
+    'UNAUTHORIZED_LOG_FILE', 'FORBIDDEN_WORDS', 'BASE_FILE', 'MAX_RESULTS'
 ]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
@@ -58,13 +57,9 @@ if missing_vars:
 whitelist_file = os.getenv('WHITELIST_FILE')
 min_file_size_gb = float(os.getenv('MIN_FILE_SIZE_GB'))
 max_file_size_gb = float(os.getenv('MAX_FILE_SIZE_GB'))
-movies_file = os.getenv('MOVIES_FILE')
+base_file = os.getenv('BASE_FILE')
 forbidden_words = os.getenv('FORBIDDEN_WORDS').split(',')
 max_results = int(os.getenv('MAX_RESULTS'))
-
-# Инициализация файлов
-ensure_file_exists(whitelist_file, default_content="")
-ensure_file_exists(movies_file, default_content="title,forbidden\n")
 
 # Инициализация бота и API
 TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -76,11 +71,12 @@ if not all([TOKEN, RUTRACKER_USERNAME, RUTRACKER_PASSWORD, SAVE_DIRECTORY]):
     raise ValueError("Не все необходимые переменные окружения заданы")
 
 ensure_directory_exists(SAVE_DIRECTORY)
+ensure_file_exists(whitelist_file, default_content="")
+ensure_file_exists(base_file, default_content="title\n")
 
 bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 whitelist = load_whitelist(whitelist_file)
-movies = load_movies(movies_file)
 
 # Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
@@ -113,14 +109,12 @@ def send_welcome(message):
 def send_info(message):
     if not check_access(message.chat.id):
         return
-    movie_count = len(movies)
+    movie_count = get_movie_count(base_file)
     user_count = get_user_count(whitelist_file)
     bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
-    if not check_access(call.message.chat.id):
-        return
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step, msg.message_id)
 
@@ -131,8 +125,6 @@ def search_prompt(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_url")
 def get_url_prompt(call):
-    if not check_access(call.message.chat.id):
-        return
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
 
     # Добавление кнопки "Отмена"
@@ -177,12 +169,9 @@ def process_get_url_step(message):
                 # Извлечение заголовка страницы
                 title = rutracker_api.get_title_from_url(url)
                 if title:
-                    title = title.split('/')[0].strip().lower()
-                    # Логирование результата в файл
-                    if title not in movies:
-                        save_movie(movies_file, title, 0)
-                        movies.add(title)
-                    else:
+                    title = title.split('/')[0].strip()
+                    # Логирование результата в BASE_FILE
+                    if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
                         bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 # Добавление кнопок поиска после отправки торрент-файла
                 send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
@@ -190,15 +179,8 @@ def process_get_url_step(message):
                 bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
         else:
             raise ValueError("Ошибка при загрузке торрент-файла")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Сетевая ошибка при загрузке торрент-файла: {e}")
-        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Сетевая ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
-    except ValueError as e:
-        logging.error(f"Ошибка при обработке торрент-файла: {e}")
-        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при обработке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
     except Exception as e:
-        logging.error(f"Неизвестная ошибка при загрузке торрент-файла: {e}")
-        bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Неизвестная ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
+        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
         # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
@@ -208,14 +190,14 @@ def process_get_url_step(message):
 def search_movie(message):
     if not check_access(message.chat.id):
         return
-    query = message.text.replace('/f', '').strip().lower()
+    query = message.text.replace('/f', '').strip()
     if not query:
         send_message_with_search_button(message.chat.id, "Пожалуйста, укажите название фильма. Например: /f Матрица")
         return
     search_movie_internal(message, query)
 
 def search_movie_internal(message, query):
-    if query in movies:
+    if rutracker_api.is_query_already_searched(base_file, query):
         send_message_with_search_button(message.chat.id, "Файл уже есть на сервере.")
         return
 
@@ -240,7 +222,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\д*)', size_str)
+                match = re.search(r'(\d+[.,]?\d*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -276,19 +258,16 @@ def download_torrent(call):
         return
 
     data = call.data.replace('download_', '').split('_')
-    topic_id, query = data[0], '_'.join(data[1:]).lower()
+    topic_id, query = data[0], '_'.join(data[1:])
 
-    if query in movies:
+    if rutracker_api.is_title_already_logged(base_file, query):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
         return
 
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if result["title"].strip().lower() not in movies:
-                save_movie(movies_file, result["title"].strip().lower(), 0)
-                movies.add(result["title"].strip().lower())
-            else:
+            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
@@ -314,19 +293,12 @@ def download_torrent(call):
             send_message_with_search_button(call.message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
         else:
             raise ValueError("Ошибка при загрузке торрент-файла")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Сетевая ошибка при загрузке торрент-файла: {e}")
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Сетевая ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
-    except ValueError as e:
-        logging.error(f"Ошибка при обработке торрент-файла: {e}")
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Ошибка при обработке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
     except Exception as e:
-        logging.error(f"Неизвестная ошибка при загрузке торрент-файла: {e}")
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Неизвестная ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.")
+        logging.error(f"Ошибка при загрузке торрент-файла: {e}")
         # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
 def cancel_search(call):
@@ -337,6 +309,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
-
-
