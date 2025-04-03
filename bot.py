@@ -8,6 +8,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
 from rutracker_api import RutrackerAPI
 from threading import Thread
+from sub import load_subscribers, save_subscribers, check_subscriptions
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -62,14 +63,6 @@ max_file_size_gb = float(os.getenv('MAX_FILE_SIZE_GB'))
 base_file = os.getenv('BASE_FILE')
 forbidden_words = os.getenv('FORBIDDEN_WORDS').split(',')
 max_results = int(os.getenv('MAX_RESULTS'))
-subscribers_file = 'subscribers.txt'
-
-# Генерация комбинаций слов исключений с годами
-def generate_forbidden_patterns(forbidden_words):
-    years = [str(year) for year in range(1940, 2031)]
-    return [f"{word} {year}" for word in forbidden_words for year in years] + [f"{year} {word}" for word in forbidden_words for year in years]
-
-forbidden_patterns = generate_forbidden_patterns(forbidden_words)
 
 # Инициализация бота и API
 TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -83,26 +76,14 @@ if not all([TOKEN, RUTRACKER_USERNAME, RUTRACKER_PASSWORD, SAVE_DIRECTORY]):
 ensure_directory_exists(SAVE_DIRECTORY)
 ensure_file_exists(whitelist_file, default_content="")
 ensure_file_exists(base_file, default_content="title\n")
-ensure_file_exists(subscribers_file, default_content="")
 
 bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 whitelist = load_whitelist(whitelist_file)
-
-# Загрузка подписчиков из файла
-def load_subscribers():
-    with open(subscribers_file, 'r') as f:
-        subscribers = set(line.strip() for line in f if line.strip())
-    save_subscribers(subscribers)  # Сохранение для удаления дубликатов
-    return subscribers
-
-# Сохранение подписчиков в файл
-def save_subscribers(subscribers):
-    with open(subscribers_file, 'w') as f:
-        for subscriber in subscribers:
-            f.write(f"{subscriber}\n")
-
 subscribers = load_subscribers()
+
+# Проверка статуса подписок при запуске
+check_subscriptions(bot, subscribers)
 
 # Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
@@ -192,7 +173,7 @@ def process_get_url_step(message):
         torrent_content = rutracker_api.download_torrent_by_url(url)
         if torrent_content:
             # Извлечение id топика из URL
-            topic_id_match = re.search(r't=(\д+)', url)
+            topic_id_match = re.search(r't=(\d+)', url)
             if topic_id_match:
                 topic_id = topic_id_match.group(1)
                 file_path = os.path.join(SAVE_DIRECTORY, f"{topic_id}.torrent")
@@ -261,7 +242,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\д+[.,]?\д*)', size_str)
+                match = re.search(r'(\d+[.,]?\d*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -376,5 +357,3 @@ update_thread.start()
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
-
