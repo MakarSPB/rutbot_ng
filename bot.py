@@ -8,7 +8,6 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
 from rutracker_api import RutrackerAPI
 from threading import Thread
-from sub import load_subscribers, save_subscribers, check_subscriptions
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -80,10 +79,6 @@ ensure_file_exists(base_file, default_content="title\n")
 bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 whitelist = load_whitelist(whitelist_file)
-subscribers = load_subscribers()
-
-# Проверка статуса подписок при запуске
-check_subscriptions(bot, subscribers)
 
 # Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
@@ -119,19 +114,6 @@ def send_info(message):
     movie_count = get_movie_count(base_file)
     user_count = get_user_count(whitelist_file)
     bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
-
-@bot.message_handler(commands=['sub'])
-def sub(message):
-    if not check_access(message.chat.id):
-        return
-    if message.chat.id in subscribers:
-        subscribers.discard(message.chat.id)
-        save_subscribers(subscribers)
-        bot.send_message(message.chat.id, "Вы отписались от уведомлений об обновлениях.")
-    else:
-        subscribers.add(message.chat.id)
-        save_subscribers(subscribers)
-        bot.send_message(message.chat.id, "Вы подписались на уведомления об обновлениях.")
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
@@ -242,7 +224,7 @@ def search_movie_internal(message, query):
         try:
             size_str = result['size'].lower()
             if 'gb' in size_str or 'гб' in size_str:
-                match = re.search(r'(\d+[.,]?\d*)', size_str)
+                match = re.search(r'(\д+[.,]?\д*)', size_str)
                 if match:
                     size_value = float(match.group(1).replace(',', '.'))
                     if min_file_size_gb <= size_value <= max_file_size_gb:
@@ -325,35 +307,9 @@ def cancel_search(call):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
     send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
 
-# Функция для проверки изменений в файле BASE_FILE
-def check_base_file_updates():
-    last_modified_time = os.path.getmtime(base_file)
-    last_lines = set()
-    with open(base_file, 'r') as f:
-        last_lines = set(f.readlines())
-    while True:
-        time.sleep(15)  # Проверка каждые 15 секунд
-        current_modified_time = os.path.getmtime(base_file)
-        if current_modified_time != last_modified_time:
-            last_modified_time = current_modified_time
-            with open(base_file, 'r') as f:
-                current_lines = set(f.readlines())
-            new_lines = current_lines - last_lines
-            if new_lines:
-                notify_subscribers(new_lines)
-            last_lines = current_lines
-
-# Функция для уведомления подписчиков
-def notify_subscribers(new_lines):
-    new_lines_text = ''.join(new_lines)
-    for chat_id in subscribers:
-        bot.send_message(chat_id, f"Обновления в базе!\nДобавлены:\n{new_lines_text}\nПоиск - /start")
-
-# Запуск проверки обновлений в отдельном потоке
-update_thread = Thread(target=check_base_file_updates)
-update_thread.start()
-
 # Запуск бота
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
+
