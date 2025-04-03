@@ -60,6 +60,7 @@ min_file_size_gb = float(os.getenv('MIN_FILE_SIZE_GB'))
 max_file_size_gb = float(os.getenv('MAX_FILE_SIZE_GB'))
 base_file = os.getenv('BASE_FILE')
 forbidden_words = os.getenv('FORBIDDEN_WORDS').split(',')
+forbidden_patterns = []  # Добавьте это, если у вас есть список запрещенных шаблонов
 max_results = int(os.getenv('MAX_RESULTS'))
 
 # Инициализация бота и API
@@ -172,7 +173,7 @@ def process_get_url_step(message):
                 if title:
                     title = title.split('/')[0].strip()
                     # Логирование результата в BASE_FILE
-                    if not rutracker_api.log_search_result(base_file, title, forbidden_words):
+                    if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
                         bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 # Добавление кнопок поиска после отправки торрент-файла
                 send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
@@ -275,7 +276,7 @@ def download_torrent(call):
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words):
+            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
@@ -324,3 +325,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
