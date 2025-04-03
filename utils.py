@@ -35,7 +35,7 @@ def log_search_result(file_path, title, forbidden_words, forbidden_patterns):
 
     with open(file_path, 'a', encoding='utf-8', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow([f'"{title}"'])
+        writer.writerow([title])
     return True
 
 def is_query_already_searched(file_path, query):
