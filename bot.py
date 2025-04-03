@@ -2,9 +2,10 @@ import os
 import re
 import telebot
 import logging
+import sqlite3
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count
+from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_user_count
 from rutracker_api import RutrackerAPI
 import requests
 
@@ -48,7 +49,7 @@ setup_logging()
 required_env_vars = [
     'LOG_LEVEL', 'LOG_FILE', 'USE_CONSOLE', 'LOG_FORMAT', 'WHITELIST_FILE', 'TELEGRAM_TOKEN',
     'RUTRACKER_USERNAME', 'RUTRACKER_PASSWORD', 'SAVE_DIRECTORY', 'MIN_FILE_SIZE_GB', 'MAX_FILE_SIZE_GB',
-    'UNAUTHORIZED_LOG_FILE', 'FORBIDDEN_WORDS', 'BASE_FILE', 'MAX_RESULTS'
+    'UNAUTHORIZED_LOG_FILE', 'FORBIDDEN_WORDS', 'DB_PATH', 'MAX_RESULTS'
 ]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
@@ -58,10 +59,48 @@ if missing_vars:
 whitelist_file = os.getenv('WHITELIST_FILE')
 min_file_size_gb = float(os.getenv('MIN_FILE_SIZE_GB'))
 max_file_size_gb = float(os.getenv('MAX_FILE_SIZE_GB'))
-base_file = os.getenv('BASE_FILE')
+db_path = os.getenv('DB_PATH')
 forbidden_words = os.getenv('FORBIDDEN_WORDS').split(',')
-forbidden_patterns = []  # Добавьте это, если у вас есть список запрещенных шаблонов
 max_results = int(os.getenv('MAX_RESULTS'))
+
+# Инициализация базы данных
+def init_db(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS movies (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL,
+            forbidden INTEGER DEFAULT 0
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def add_movie(db_path, title, forbidden):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO movies (title, forbidden) VALUES (?, ?)', (title, forbidden))
+    conn.commit()
+    conn.close()
+
+def is_movie_in_db(db_path, title):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT 1 FROM movies WHERE title = ?', (title,))
+    result = cursor.fetchone()
+    conn.close()
+    return result is not None
+
+def get_movie_count(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM movies')
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+init_db(db_path)
 
 # Инициализация бота и API
 TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -74,7 +113,6 @@ if not all([TOKEN, RUTRACKER_USERNAME, RUTRACKER_PASSWORD, SAVE_DIRECTORY]):
 
 ensure_directory_exists(SAVE_DIRECTORY)
 ensure_file_exists(whitelist_file, default_content="")
-ensure_file_exists(base_file, default_content="title\n")
 
 bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
@@ -111,7 +149,7 @@ def send_welcome(message):
 def send_info(message):
     if not check_access(message.chat.id):
         return
-    movie_count = get_movie_count(base_file)
+    movie_count = get_movie_count(db_path)
     user_count = get_user_count(whitelist_file)
     bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
 
@@ -172,8 +210,10 @@ def process_get_url_step(message):
                 title = rutracker_api.get_title_from_url(url)
                 if title:
                     title = title.split('/')[0].strip()
-                    # Логирование результата в BASE_FILE
-                    if not rutracker_api.log_search_result(base_file, title, forbidden_words, forbidden_patterns):
+                    # Логирование результата в базу данных
+                    if not is_movie_in_db(db_path, title):
+                        add_movie(db_path, title, 0)
+                    else:
                         bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 # Добавление кнопок поиска после отправки торрент-файла
                 send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
@@ -206,7 +246,7 @@ def search_movie(message):
     search_movie_internal(message, query)
 
 def search_movie_internal(message, query):
-    if rutracker_api.is_query_already_searched(base_file, query):
+    if is_movie_in_db(db_path, query):
         send_message_with_search_button(message.chat.id, "Файл уже есть на сервере.")
         return
 
@@ -269,14 +309,16 @@ def download_torrent(call):
     data = call.data.replace('download_', '').split('_')
     topic_id, query = data[0], '_'.join(data[1:])
 
-    if rutracker_api.is_title_already_logged(base_file, query):
+    if is_movie_in_db(db_path, query):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
         return
 
     search_result = rutracker_api.search_movie(query)
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
-            if not rutracker_api.log_search_result(base_file, result["title"], forbidden_words, forbidden_patterns):
+            if not is_movie_in_db(db_path, result["title"]):
+                add_movie(db_path, result["title"], 0)
+            else:
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
             break
