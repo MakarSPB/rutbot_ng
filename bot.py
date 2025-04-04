@@ -311,7 +311,7 @@ def download_torrent(call):
             os.chmod(file_path, 0o755)
 
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-            bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+            bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
 
             # Логирование информации о загруженном файле
             logging.info(f"Торрент-файл загружен: {file_path}")
