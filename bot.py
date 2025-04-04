@@ -244,7 +244,8 @@ def search_movie_internal(message, query):
         send_message_with_search_button(message.chat.id, f"По запросу '{query}' чет я ничего не нашел :(")
         return
 
-    results = sorted(results, key=lambda x: x.get('size_value', 0))[:max_results]
+    # Сортировка сначала по количеству сидов, затем по размеру файла
+    results = sorted(results, key=lambda x: (x.get('seeders_count', 0), x.get('size_value', 0)), reverse=True)[:max_results]
 
     result_text = f"Найдено {len(results)} результатов по запросу '{query}' ({min_file_size_gb}-{max_file_size_gb} ГБ):\n\n"
     for idx, result in enumerate(results, 1):
@@ -252,7 +253,7 @@ def search_movie_internal(message, query):
 
     markup = InlineKeyboardMarkup()
     for idx, result in enumerate(results, 1):
-        markup.add(InlineKeyboardButton(f"#{idx} [Размер: {result['size']}]", callback_data=f"download_{result['topic_id']}_{query}"))
+        markup.add(InlineKeyboardButton(f"#{idx} [Размер: {result['size']}, Сиды: {result['seeders']}]", callback_data=f"download_{result['topic_id']}_{query}"))
 
     markup.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
 

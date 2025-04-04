@@ -85,13 +85,19 @@ class RutrackerAPI:
 
                     topic_id = re.search(r"t=(\d+)", title_element["href"]).group(1)
                     size = row.select_one("td.tor-size").text.strip() if row.select_one("td.tor-size") else "Неизвестно"
-                    seeders = row.select_one("td.seeders").text.strip() if row.select_one("td.seeders") else "0"
+                    
+                    # Исправленный селектор для сидов
+                    seeders_element = row.select_one("td.seeders")
+                    seeders = seeders_element.text.strip() if seeders_element else "0"
+                    # Преобразуем в число для правильной сортировки
+                    seeders_count = int(seeders) if seeders.isdigit() else 0
 
                     results.append({
                         "title": title,
                         "topic_id": topic_id,
                         "size": size,
                         "seeders": seeders,
+                        "seeders_count": seeders_count,  # Добавляем числовое значение для сортировки
                         "download_link": f"{self.base_url}dl.php?t={topic_id}"
                     })
                 except Exception as e:
@@ -196,4 +202,3 @@ class RutrackerAPI:
         except Exception as e:
             logging.error(f"Ошибка при получении заголовка страницы: {e}")
             return None
-
