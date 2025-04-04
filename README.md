@@ -1,91 +1,94 @@
 # UBEBC rutbot
-------------
-
-Бот на питоне для поиска файлов на rutraker.org и скачивания торрент файлов.\
-Бот пуляет файлы в чат и кладёт их на диск в нужную дирекеторю.\
-Так же ведёт базу скачаноего в файл.\
-При повторном запросе файла, бот проверяет базу и не качает файл повторно.\
-Присутствует отключаемая работа через прокси.\
-Бот умеет фильтровать запросы по размеру файлов.\
-
-------------
-Копируем .env.example в .env и заполняем его данными:
-
-Общие настройки:
-TELEGRAM_TOKEN=Ваш токен\
-RUTRACKER_USERNAME=Логин от rutracker\
-RUTRACKER_PASSWORD=пароль от rutracker\
-SAVE_DIRECTORY=место куда сохранять торрент файлы
-
-Фильтр резульатов поиска:\
-MAX_RESULTS=5\
-MIN_FILE_SIZE_GB=1.3\
-MAX_FILE_SIZE_GB=6
-
-Настройка логов:\
-Уровень логирования (DEBUG, INFO, WARNING, ERROR, CRITICAL) INFO - штатный режим.
-
-LOG_LEVEL=INFO\
-LOG_FILE=bot.log\
-USE_CONSOLE=true\
-LOG_FORMAT='%(asctime)s - %(name)s - %(levelname)s - %(message)s'\
-LOG_DATE_FORMAT='%Y-%m-%d %H:%M:%S'
-
-Настройка PROXY (true/false):\
-USE_PROXY=false\
-HTTP_PROXY=http:123.4.5.6:789\
-HTTPS_PROXY=http:123.4.5.6:789
-
-Прочие файлы, при отсутствии создаются автоматически:\
-DOWNLOAD_COUNT_FILE=download_count.txt\
-WHITELIST_FILE=whitelist.txt
-
-База фильмов\
-BASE_FILE=base.csv
-
-Слова-исключения для base.csv\
-Запросы с этими словами и их комбинацией с годом, не попадут в базу\
-Пример: Комедия 2024\
-Слова через запятую без пробелов.\
-FORBIDDEN_WORDS=комедия,боевик,фантастика,фентэзи,драма,мелодрама,ситком
-
-
-------------
-
-whitelist.txt - добавляем в него id юзеров телеги.\ 
-(узнать свой id можно у @getmyid_bot)\
-Каждый в новой строке.
-
-Пример:
-
-0000000000\
-000000000
-
-------------
-
-Минималочка: 
+---
+### Бот на Python для поиска и скачивания торрент-файлов с rutracker.org. Бот автоматизирует поиск контента, отправляет торрент-файлы в Telegram и сохраняет их в указанную директорию.
+---
+## Основные возможности 
+•	🔍 Поиск торрентов на RuTracker с гибкой фильтрацией\
+•	📤 Отправка торрент-файлов в чат Telegram\
+•	💾 Автоматическое сохранение торрентов на сервере\
+•	📊 Ведение базы загруженных файлов с предотвращением дубликатов\
+•	📏 Фильтрация результатов по размеру файла\
+•	📶 Сортировка результатов по количеству сидов\
+•	🔒 Система авторизации пользователей через whitelist\
+•	🌐 Поддержка работы через прокси (опционально)\
+## Установка
+### Системные требования
 sudo apt update\
-sudo apt install python3\
-sudo apt-get install python3-pip\
+sudo apt install python3 python3-pip\
 pip install -r requirements.txt
 
-------------
+### Настройка конфигурации
+1.	Скопируйте пример конфигурации и настройте его:\
+cp .env.example .env\
+nano .env
 
-Запуск:
+2.	Создайте файл с разрешенными пользователями:\
+nano whitelist.txt
 
-pythone3 bot.py
+Добавьте в файл ID пользователей Telegram (по одному на строку), которым разрешен доступ к боту. ID можно узнать у @getmyid_bot.
 
-или мутим сервис - rutbot.service
+## Параметры конфигурации
+### Основные настройки
 
-Правим файл под себя rutbot.service\
-копируем его в /etc/systemd/system/
+TELEGRAM_TOKEN=                  # Токен бота от @BotFather\
+RUTRACKER_USERNAME=              # Логин на RuTracker\
+RUTRACKER_PASSWORD=              # Пароль на RuTracker\
+SAVE_DIRECTORY=        # Директория для сохранения торрентов
 
-sudo cp rutbot.service /etc/systemd/system/
-перезагружаем демон\
-sudo systemctl daemon-reload
+### Настройки поиска и фильтрации
 
-добавляем в автозапуск:\
-sudo systemctl enable rutbot.service
+MAX_RESULTS=5                    # Максимальное количество результатов\
+MIN_FILE_SIZE_GB=1.3             # Минимальный размер файла в ГБ\
+MAX_FILE_SIZE_GB=15              # Максимальный размер файла в ГБ\
+FORBIDDEN_WORDS=sample,trailer    # Слова-исключения через запятую
 
-Старт/Стоп:\
-sudo systemctl start/stop rutbot.service
+### Логирование и безопасность
+
+LOG_LEVEL=INFO                   # (DEBUG, INFO, WARNING, ERROR)\
+LOG_FILE=bot.log                 # Файл логов\
+USE_CONSOLE=true                 # Вывод логов в консоль\
+WHITELIST_FILE=whitelist.txt     # Файл списка разрешенных пользователей\
+UNAUTHORIZED_LOG_FILE=unauthorized_users.log  # Лог неавторизованных пользователей
+
+### Прокси (опционально)
+
+USE_PROXY=false                  # Использовать прокси\
+HTTP_PROXY=http://123.4.5.6:789  # HTTP прокси\
+HTTPS_PROXY=http://123.4.5.6:789 # HTTPS прокси
+
+
+## Запуск
+### Обычный запуск
+python3 bot.py
+
+### Запуск как системный сервис
+1.	Настройте файл сервиса:\
+sudo cp rutbot.service /etc/systemd/system/\
+Поменяйте директории в файле rutbot.service на свои. Для этого выполните команду:\
+sudo nano /etc/systemd/system/rutbot.service
+sudo systemctl daemon-reload\
+sudo systemctl enable rutbot.service\
+sudo systemctl start rutbot.service
+
+2.	Установите сервис:\
+sudo cp rutbot.service /etc/systemd/system/\
+sudo systemctl daemon-reload\
+sudo systemctl enable rutbot.service\
+sudo systemctl start rutbot.service
+
+3.	Управление сервисом:\
+sudo systemctl status rutbot.service  # Проверка статуса\
+sudo systemctl stop rutbot.service    # Остановка\
+sudo systemctl restart rutbot.service # Перезапуск
+
+## Использование бота
+•	/start - Запустить бота и показать меню\
+•	/f [название] - Поиск по названию (например: /f Матрица)\
+•	/info - Показать статистику (количество фильмов и пользователей)\
+### Интерактивное меню:
+•	🔍 Поиск фильма - Запуск поиска по названию\
+•	🔗 URL c rutracker - Загрузка торрента по прямой ссылке\
+При поиске результаты сортируются по количеству сидов и размеру, что обеспечивает получение наиболее качественных и быстро скачиваемых торрентов.
+
+## Лицензия:
+Проект распространяется с открытым исходным кодом. Используйте его с соблюдением законодательства и правил сайта rutracker.org.
