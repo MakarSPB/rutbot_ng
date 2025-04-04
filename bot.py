@@ -251,7 +251,6 @@ def search_movie_internal(message, query):
 
     # Сортировка сначала по количеству сидов, затем по размеру файла
     results = sorted(results, key=lambda x: (x.get('seeders_count', 0), x.get('size_value', 0)), reverse=True)[:max_results]
-
     result_text = f"Найдено {len(results)} результатов по запросу '{query}' ({min_file_size_gb}-{max_file_size_gb} ГБ):\n\n"
     for idx, result in enumerate(results, 1):
         # Убедимся, что seeders отображается правильно
