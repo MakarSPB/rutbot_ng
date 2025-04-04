@@ -73,6 +73,9 @@ class RutrackerAPI:
             soup = BeautifulSoup(response.text, "html.parser")
             results = []
 
+            # Сохраняем HTML для отладки
+            logging.debug(f"HTML страницы поиска: {response.text[:1000]}...")  # Первые 1000 символов для лога
+
             for row in soup.select("tr.hl-tr"):
                 try:
                     title_element = row.select_one("a.tLink")
@@ -86,34 +89,49 @@ class RutrackerAPI:
                     topic_id = re.search(r"t=(\d+)", title_element["href"]).group(1)
                     size = row.select_one("td.tor-size").text.strip() if row.select_one("td.tor-size") else "Неизвестно"
                     
-                    # Более тщательная проверка элемента с сидами
+                    # Улучшенное извлечение сидов
+                    # Сначала проверяем, есть ли ячейка с классом seeders
                     seeders_element = row.select_one("td.seeders")
                     
-                    # Добавляем логирование для отладки
                     if seeders_element:
-                        logging.debug(f"Текст элемента seeders: '{seeders_element.text}'")
-                        
-                        # Проверяем наличие вложенных элементов
-                        seeders_b = seeders_element.select_one("b")
-                        if seeders_b:
-                            seeders = seeders_b.text.strip()
+                        # Проверяем, есть ли вложенный тег <b> (на rutracker часто используется)
+                        seeders_bold = seeders_element.select_one("b")
+                        if seeders_bold:
+                            seeders_text = seeders_bold.text.strip()
                         else:
-                            seeders = seeders_element.text.strip()
+                            seeders_text = seeders_element.text.strip()
+                        
+                        # Очищаем текст от нецифровых символов
+                        seeders_clean = re.sub(r'\D', '', seeders_text)
+                        seeders_count = int(seeders_clean) if seeders_clean else 0
                     else:
-                        seeders = "0"
+                        # Если ячейка не найдена, ищем по индексу (некоторые строки могут не иметь класса)
+                        cells = row.select("td")
+                        if len(cells) >= 8:  # Обычно сиды находятся в 7-й или 8-й ячейке
+                            # Проверяем разные колонки, которые могут содержать сиды
+                            for i in [6, 7, 8]:
+                                if i < len(cells):
+                                    cell_text = cells[i].text.strip()
+                                    # Если текст похож на число, предполагаем, что это сиды
+                                    if re.match(r'^\d+$', cell_text):
+                                        seeders_text = cell_text
+                                        seeders_count = int(cell_text)
+                                        break
+                            else:
+                                seeders_text = "0"
+                                seeders_count = 0
+                        else:
+                            seeders_text = "0"
+                            seeders_count = 0
                     
-                    # Удаляем все нецифровые символы для надежного преобразования
-                    seeders_clean = re.sub(r'[^\d]', '', seeders)
-                    seeders_count = int(seeders_clean) if seeders_clean else 0
-                    
-                    logging.debug(f"Извлеченное значение сидов: {seeders}, преобразовано в: {seeders_count}")
+                    logging.debug(f"Тема: {title}, Сиды текст: '{seeders_text}', очищено: {seeders_count}")
 
                     results.append({
                         "title": title,
                         "topic_id": topic_id,
                         "size": size,
-                        "seeders": seeders,
-                        "seeders_count": seeders_count,
+                        "seeders": str(seeders_count),  # Строковое представление для совместимости
+                        "seeders_count": seeders_count,  # Числовое значение для сортировки
                         "download_link": f"{self.base_url}dl.php?t={topic_id}"
                     })
                 except Exception as e:
@@ -218,4 +236,3 @@ class RutrackerAPI:
         except Exception as e:
             logging.error(f"Ошибка при получении заголовка страницы: {e}")
             return None
-
