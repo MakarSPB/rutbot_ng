@@ -249,11 +249,30 @@ def search_movie_internal(message, query):
 
     result_text = f"Найдено {len(results)} результатов по запросу '{query}' ({min_file_size_gb}-{max_file_size_gb} ГБ):\n\n"
     for idx, result in enumerate(results, 1):
-        result_text += f"{idx}. {result['title']}\n   Размер: {result['size']}, Сиды: {result['seeders']}\n\n"
+        # Убедимся, что seeders отображается правильно
+        seeders_display = result.get('seeders_count', 0)
+        if seeders_display == 0 and 'seeders' in result and result['seeders'] != "0":
+            try:
+                seeders_clean = re.sub(r'[^\d]', '', result['seeders'])
+                seeders_display = int(seeders_clean) if seeders_clean else 0
+            except:
+                seeders_display = 0
+        
+        result_text += f"{idx}. {result['title']}\n   Размер: {result['size']}, Сиды: {seeders_display}\n\n"
 
     markup = InlineKeyboardMarkup()
     for idx, result in enumerate(results, 1):
-        markup.add(InlineKeyboardButton(f"#{idx} [Размер: {result['size']}, Сиды: {result['seeders']}]", callback_data=f"download_{result['topic_id']}_{query}"))
+        # Убедимся, что seeders отображается правильно в кнопках
+        seeders_display = result.get('seeders_count', 0)
+        if seeders_display == 0 and 'seeders' in result and result['seeders'] != "0":
+            try:
+                seeders_clean = re.sub(r'[^\d]', '', result['seeders'])
+                seeders_display = int(seeders_clean) if seeders_clean else 0
+            except:
+                seeders_display = 0
+            
+        markup.add(InlineKeyboardButton(f"#{idx} [Размер: {result['size']}, Сиды: {seeders_display}]", 
+                                      callback_data=f"download_{result['topic_id']}_{query}"))
 
     markup.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
 
@@ -317,3 +336,4 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
+
