@@ -169,13 +169,18 @@ def process_get_url_step(message):
                     f.write(torrent_content)
                 os.chmod(file_path, 0o755)
                 bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
-                bot.send_document(message.chat.id, torrent_content, visible_file_name=f"{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+                
+                # Извлечение заголовка страницы
+                title = rutracker_api.get_title_from_url(url)
+                title_display = title.split('/')[0].strip() if title else f"Торрент {topic_id}"
+                
+                bot.send_document(message.chat.id, torrent_content, 
+                                 visible_file_name=f"{topic_id}.torrent", 
+                                 caption=f"✅ Вот ваш торрент-файл: \"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
                 
                 # Логирование информации о загруженном файле
                 logging.info(f"Торрент-файл загружен: {file_path}")
 
-                # Извлечение заголовка страницы
-                title = rutracker_api.get_title_from_url(url)
                 if title:
                     if not log_title_to_base_file(base_file, title, forbidden_words):
                         bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
@@ -291,9 +296,12 @@ def download_torrent(call):
         return
 
     search_result = rutracker_api.search_movie(query)
+    title_display = query  # По умолчанию используем поисковый запрос
+    
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
             title = result["title"].split('/')[0].strip()
+            title_display = title  # Получаем название из результатов поиска
             if not log_title_to_base_file(base_file, title, forbidden_words):
                 bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
                 return
@@ -311,7 +319,9 @@ def download_torrent(call):
             os.chmod(file_path, 0o755)
 
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-            bot.send_document(call.message.chat.id, torrent_data, visible_file_name=f"rutracker_{topic_id}.torrent", caption="✅ Вот ваш торрент-файл!\"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+            bot.send_document(call.message.chat.id, torrent_data, 
+                             visible_file_name=f"rutracker_{topic_id}.torrent", 
+                             caption=f"✅ Вот ваш торрент-файл: \"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
 
             # Логирование информации о загруженном файле
             logging.info(f"Торрент-файл загружен: {file_path}")
@@ -336,4 +346,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
