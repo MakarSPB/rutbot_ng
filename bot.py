@@ -294,6 +294,7 @@ def send_help(message):
             "/f <название> — поиск и скачивание фильма\n"
             "/info — статистика пользователей\n"
             "/users — список пользователей\n"
+            "/adduser <telegram_id> — добавить пользователя\n"
             "/setrole <telegram_id> <role> — сменить роль пользователя (user/admin)\n"
             "/deleteuser <telegram_id> — удалить пользователя\n"
             "/status — статус подключения к RuTracker, Jellyfin и qBittorrent\n"
