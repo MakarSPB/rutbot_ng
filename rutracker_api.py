@@ -4,6 +4,10 @@ import re
 import logging
 from bs4 import BeautifulSoup
 
+# Чтение ключевых слов и исключающих слов из .env
+RUTRACKER_KEYWORDS = [k.strip().lower() for k in os.getenv('RUTRACKER_KEYWORDS', '').split(',') if k.strip()]
+RUTRACKER_EXCLUDE = [k.strip().lower() for k in os.getenv('RUTRACKER_EXCLUDE', '').split(',') if k.strip()]
+
 class RutrackerAPI:
     def __init__(self, username, password):
         self.username = username
@@ -73,8 +77,7 @@ class RutrackerAPI:
             soup = BeautifulSoup(response.text, "html.parser")
             results = []
 
-            # Сохраняем HTML для отладки
-            logging.debug(f"HTML страницы поиска: {response.text[:1000]}...")  # Первые 1000 символов для лога
+            logging.debug(f"HTML страницы поиска: {response.text[:1000]}...")
 
             for row in soup.select("tr.hl-tr"):
                 try:
@@ -83,7 +86,11 @@ class RutrackerAPI:
                         continue
 
                     title = title_element.text.strip()
-                    if not any(keyword in title.lower() for keyword in ["фантастика", "драма", "фэнтези", "ужасы", "мелодрама", "комедия", "боевик", "арт-хаус", "триллер"]):
+                    # Фильтрация по ключевым словам
+                    if RUTRACKER_KEYWORDS and not any(keyword in title.lower() for keyword in RUTRACKER_KEYWORDS):
+                        continue
+                    # Исключение по словам
+                    if RUTRACKER_EXCLUDE and any(exclude in title.lower() for exclude in RUTRACKER_EXCLUDE):
                         continue
 
                     topic_id = re.search(r"t=(\d+)", title_element["href"]).group(1)
