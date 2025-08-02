@@ -99,7 +99,13 @@ def check_rutracker_status():
 # Проверка подключения к Jellyfin (для команды /status)
 def check_jellyfin_status():
     try:
-        return jellyfin_api.movie_exists("")
+        resp = jellyfin_api.session.get(
+            f"{jellyfin_api.url}/emby/Items",
+            params={'IncludeItemTypes': 'Movie', 'Recursive': 'true'},
+            proxies={},
+            timeout=10
+        )
+        return resp.status_code == 200
     except Exception as e:
         logging.error(f"Ошибка проверки Jellyfin: {e}")
         return False
