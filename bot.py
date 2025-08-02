@@ -178,6 +178,25 @@ def set_role(message):
     except Exception:
         bot.send_message(message.chat.id, "Использование: /setrole <telegram_id> <role>")
 
+@bot.message_handler(commands=['deleteuser'])
+@authorized_only
+def delete_user(message):
+    if get_user_role(message.chat.id) != 'admin':
+        bot.send_message(message.chat.id, "Доступ запрещён.")
+        return
+    try:
+        _, user_id = message.text.split()
+        if str(user_id) == str(message.chat.id):
+            bot.send_message(message.chat.id, "Нельзя удалить самого себя.")
+            return
+        from utils import delete_user_by_id
+        if delete_user_by_id(user_id):
+            bot.send_message(message.chat.id, f"Пользователь {user_id} удалён.")
+        else:
+            bot.send_message(message.chat.id, f"Пользователь {user_id} не найден.")
+    except Exception:
+        bot.send_message(message.chat.id, "Использование: /deleteuser <telegram_id>")
+
 @bot.message_handler(commands=['help'])
 @authorized_only
 def send_help(message):

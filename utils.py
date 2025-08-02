@@ -41,6 +41,14 @@ def add_user(telegram_id):
     conn.commit()
     conn.close()
 
+def delete_user_by_id(telegram_id):
+    conn = get_db_connection()
+    cur = conn.execute('DELETE FROM users WHERE telegram_id = ?', (str(telegram_id),))
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
+
 def is_user_allowed(telegram_id):
     return get_user_role(telegram_id) is not None
 
