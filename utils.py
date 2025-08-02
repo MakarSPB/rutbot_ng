@@ -10,24 +10,28 @@ def get_db_path():
 
 def get_db_connection():
     db_path = get_db_path()
-    if not os.path.exists(os.path.dirname(db_path)):
-        os.makedirs(os.path.dirname(db_path))
+    db_dir = os.path.dirname(db_path)
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir)
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            telegram_id TEXT UNIQUE NOT NULL,
-            role TEXT NOT NULL DEFAULT 'user'
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    db_path = get_db_path()
+    # Инициализируем базу только если файл не существует
+    if not os.path.exists(db_path):
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id TEXT UNIQUE NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user'
+            )
+        ''')
+        conn.commit()
+        conn.close()
 
 def add_user(telegram_id):
     conn = get_db_connection()
