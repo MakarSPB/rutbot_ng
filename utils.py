@@ -1,6 +1,10 @@
 import os
 import sqlite3
 
+def ensure_directory_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
 def get_db_path():
     return os.getenv('SQLITE_DB_FILE', 'db/bot_users.db')
 
