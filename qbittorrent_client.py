@@ -1,42 +1,37 @@
 import os
-import requests
+import qbittorrentapi
+from io import BytesIO
 
 class QBittorrentClient:
     def __init__(self):
-        self.url = os.getenv('QBITTORRENT_URL')
+        self.host = os.getenv('QBITTORRENT_URL')
         self.username = os.getenv('QBITTORRENT_USERNAME')
         self.password = os.getenv('QBITTORRENT_PASSWORD')
         self.save_path = os.getenv('QBITTORRENT_SAVE_PATH')
         self.category = os.getenv('QBITTORRENT_CATEGORY')
-        self.session = requests.Session()
-        self.session.trust_env = False  # Отключаем использование прокси из окружения
-        self._login()
-
-    def _login(self):
-        login_url = f"{self.url}/api/v2/auth/login"
-        data = {
-            'username': self.username,
-            'password': self.password
-        }
-        resp = self.session.post(login_url, data=data, proxies={}, timeout=10)
-        if resp.text != 'Ok.':
-            raise Exception("Не удалось авторизоваться в qBittorrent Web UI")
+        self.client = qbittorrentapi.Client(
+            host=self.host,
+            username=self.username,
+            password=self.password,
+            REQUESTS_ARGS={"proxies": {}, "timeout": 10, "trust_env": False}
+        )
+        try:
+            self.client.auth_log_in()
+        except qbittorrentapi.LoginFailed as e:
+            raise Exception(f"Не удалось авторизоваться в qBittorrent Web UI: {e}")
 
     def add_torrent(self, torrent_bytes, filename):
-        add_url = f"{self.url}/api/v2/torrents/add"
-        files = {'torrents': (filename, torrent_bytes)}
-        data = {}
-        if self.save_path:
-            data['savepath'] = self.save_path
-        if self.category:
-            data['category'] = self.category
-        resp = self.session.post(add_url, data=data, files=files, proxies={}, timeout=10)
-        if resp.status_code != 200:
-            raise Exception(f"Ошибка добавления торрента: {resp.text}")
+        torrent_file = BytesIO(torrent_bytes)
+        torrent_file.name = filename
+        self.client.torrents_add(
+            torrent_files=torrent_file,
+            save_path=self.save_path,
+            category=self.category
+        )
 
     def check_connection(self):
         try:
-            resp = self.session.get(f"{self.url}/api/v2/app/version", proxies={}, timeout=10)
-            return resp.status_code == 200
+            self.client.app_version()
+            return True
         except Exception:
             return False
