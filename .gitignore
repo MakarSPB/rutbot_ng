@@ -6,3 +6,4 @@
 files
 *.swp
 /.vs
+db/bot_users.db
