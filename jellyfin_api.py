@@ -10,6 +10,7 @@ class JellyfinAPI:
         self.session.headers.update({
             'X-Emby-Token': self.api_key
         })
+        self.session.trust_env = False  # <--- ВАЖНО!
 
     def movie_exists(self, title):
         params = {
@@ -19,7 +20,6 @@ class JellyfinAPI:
         }
         if self.library_id:
             params['ParentId'] = self.library_id
-        # Явно отключаем прокси для Jellyfin
         resp = self.session.get(f"{self.url}/emby/Items", params=params, proxies={})
         if resp.status_code == 200:
             data = resp.json()
