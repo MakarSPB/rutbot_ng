@@ -20,6 +20,9 @@ from qbittorrent_client import QBittorrentClient
 # Загрузка переменных окружения
 load_dotenv()
 
+# Получаем ID главного администратора из .env
+MAIN_ADMIN_ID = os.getenv('MAIN_ADMIN_ID')
+
 # Настройка логирования
 def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -86,6 +89,9 @@ rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 jellyfin_api = JellyfinAPI()
 qbittorrent_client = QBittorrentClient()
 
+def is_main_admin(chat_id):
+    return MAIN_ADMIN_ID and str(chat_id) == str(MAIN_ADMIN_ID)
+
 # Проверка наличия фильма в Jellyfin
 def is_movie_in_jellyfin(title):
     return jellyfin_api.movie_exists(title)
@@ -120,7 +126,6 @@ def check_qbittorrent_status():
         logging.error(f"Ошибка проверки qBittorrent: {e}")
         return False
 
-# Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔍 Поиск фильма", callback_data="search_prompt"))
@@ -135,13 +140,14 @@ def log_unauthorized_access(user_id):
         unauthorized_logger.info(f"Неавторизованный доступ: {user_id}")
 
 def check_access(chat_id):
+    # Главный админ всегда имеет доступ
+    if is_main_admin(chat_id):
+        return True
     if not is_user_allowed(chat_id):
         log_unauthorized_access(chat_id)
-        # Не отвечаем пользователям, которых нет в базе
         return False
     return True
 
-# Глобальный фильтр: не отвечать неавторизованным пользователям
 def authorized_only(func):
     def wrapper(message, *args, **kwargs):
         if not check_access(message.chat.id):
@@ -161,7 +167,9 @@ def authorized_only_callback(func):
 def send_welcome(message):
     add_user(message.chat.id)
     role = get_user_role(message.chat.id)
-    if role == 'admin':
+    if is_main_admin(message.chat.id):
+        welcome = "Вы главный администратор. "
+    elif role == 'admin':
         welcome = "Вы администратор. "
     else:
         welcome = ""
@@ -182,7 +190,7 @@ def send_info(message):
 @bot.message_handler(commands=['users'])
 @authorized_only
 def list_users(message):
-    if get_user_role(message.chat.id) != 'admin':
+    if not (get_user_role(message.chat.id) == 'admin' or is_main_admin(message.chat.id)):
         bot.send_message(message.chat.id, "Доступ запрещён.")
         return
     users = get_all_users()
@@ -197,7 +205,7 @@ def list_users(message):
 @bot.message_handler(commands=['setrole'])
 @authorized_only
 def set_role(message):
-    if get_user_role(message.chat.id) != 'admin':
+    if not (get_user_role(message.chat.id) == 'admin' or is_main_admin(message.chat.id)):
         bot.send_message(message.chat.id, "Доступ запрещён.")
         return
     try:
@@ -213,7 +221,7 @@ def set_role(message):
 @bot.message_handler(commands=['deleteuser'])
 @authorized_only
 def delete_user(message):
-    if get_user_role(message.chat.id) != 'admin':
+    if not (get_user_role(message.chat.id) == 'admin' or is_main_admin(message.chat.id)):
         bot.send_message(message.chat.id, "Доступ запрещён.")
         return
     try:
@@ -247,7 +255,19 @@ def send_status(message):
 @authorized_only
 def send_help(message):
     role = get_user_role(message.chat.id)
-    if role == 'admin':
+    if is_main_admin(message.chat.id):
+        help_text = (
+            "Доступные команды для главного администратора:\n"
+            "/start — приветствие и меню\n"
+            "/f <название> — поиск и скачивание фильма\n"
+            "/info — статистика пользователей\n"
+            "/users — список пользователей\n"
+            "/setrole <telegram_id> <role> — сменить роль пользователя (user/admin)\n"
+            "/deleteuser <telegram_id> — удалить пользователя\n"
+            "/status — статус подключения к RuTracker, Jellyfin и qBittorrent\n"
+            "/help — показать это сообщение\n"
+        )
+    elif role == 'admin':
         help_text = (
             "Доступные команды для администратора:\n"
             "/start — приветствие и меню\n"
@@ -330,7 +350,6 @@ def process_get_url_step(message):
                     bot.send_message(message.chat.id, "😆 Файл уже есть на Plex/Jellyfin. Торрент не будет загружен.")
                     return
 
-                # ДОБАВЛЯЕМ В QBITTORRENT
                 try:
                     qbittorrent_client.add_torrent(torrent_content, f"{topic_id}.torrent")
                     logging.info(f"Торрент-файл отправлен в qBittorrent: {topic_id}.torrent")
@@ -369,7 +388,6 @@ def search_movie(message):
 def search_movie_internal(message, query):
     if not check_access(message.chat.id):
         return
-    # Проверка через Jellyfin
     if is_movie_in_jellyfin(query):
         send_message_with_search_button(message.chat.id, "Файл уже есть на сервере (Jellyfin).")
         return
@@ -449,7 +467,6 @@ def download_torrent(call):
     data = call.data.replace('download_', '').split('_')
     topic_id, query = data[0], '_'.join(data[1:])
 
-    # Проверка через Jellyfin
     if is_movie_in_jellyfin(query):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее (Jellyfin).")
         return
@@ -477,7 +494,6 @@ def download_torrent(call):
                 f.write(torrent_data)
             os.chmod(file_path, 0o755)
 
-            # ДОБАВЛЯЕМ В QBITTORRENT
             try:
                 qbittorrent_client.add_torrent(torrent_data, f"{topic_id}.torrent")
                 logging.info(f"Торрент-файл отправлен в qBittorrent: {topic_id}.torrent")
@@ -510,7 +526,6 @@ def cancel_search(call):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
     send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
 
-# Запуск бота
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
