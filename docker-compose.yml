@@ -1,6 +1,6 @@
 services:
   telegram-bot:
-    build: https://github.com/Makar-aka/rutbot.git
+    build: https://github.com/Makar-aka/rutbot_ng.git
     env_file:
       - .env
     volumes:
