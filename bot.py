@@ -202,6 +202,26 @@ def list_users(message):
         text += f"ID: {user['telegram_id']}, Роль: {user['role']}\n"
     bot.send_message(message.chat.id, text)
 
+@bot.message_handler(commands=['adduser'])
+@authorized_only
+def add_user_command(message):
+    # Только главный админ может добавлять пользователей
+    if not is_main_admin(message.chat.id):
+        bot.send_message(message.chat.id, "Доступ запрещён. Только главный администратор может добавлять пользователей.")
+        return
+    try:
+        # Ожидаем команду вида: /adduser <telegram_id>
+        parts = message.text.strip().split()
+        if len(parts) != 2:
+            bot.send_message(message.chat.id, "Использование: /adduser <telegram_id>")
+            return
+        user_id = parts[1]
+        add_user(user_id)
+        bot.send_message(message.chat.id, f"Пользователь {user_id} добавлен.")
+    except Exception as e:
+        logging.error(f"Ошибка при добавлении пользователя: {e}")
+        bot.send_message(message.chat.id, "Ошибка при добавлении пользователя.")
+
 @bot.message_handler(commands=['setrole'])
 @authorized_only
 def set_role(message):
