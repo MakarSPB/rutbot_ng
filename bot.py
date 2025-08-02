@@ -84,23 +84,6 @@ bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 jellyfin_api = JellyfinAPI()
 
-# Проверка подключения к Jellyfin при запуске
-def check_jellyfin_connection_on_start():
-    try:
-        resp = jellyfin_api.session.get(
-            f"{jellyfin_api.url}/emby/Items",
-            params={'IncludeItemTypes': 'Movie', 'Recursive': 'true'},
-            proxies={},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            raise Exception(f"Jellyfin вернул статус {resp.status_code}")
-    except Exception as e:
-        logging.critical(f"Не удалось подключиться к Jellyfin: {e}")
-        raise SystemExit("Остановка: нет подключения к Jellyfin")
-
-check_jellyfin_connection_on_start()
-
 # Проверка наличия фильма в Jellyfin
 def is_movie_in_jellyfin(title):
     return jellyfin_api.movie_exists(title)
