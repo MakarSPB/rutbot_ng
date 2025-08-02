@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build: https://github.com/Makar-aka/rutbot.git
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./db:/app/db
+    restart: unless-stopped

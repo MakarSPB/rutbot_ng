@@ -2,12 +2,16 @@ import os
 import re
 import telebot
 import logging
-import time
 from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from utils import ensure_directory_exists, ensure_file_exists, load_whitelist, get_movie_count, get_user_count, log_search_result, is_query_already_searched, is_title_already_logged
+from utils import (
+    ensure_directory_exists,
+    get_user_count,
+    add_user,
+    is_user_allowed,
+)
 from rutracker_api import RutrackerAPI
-from threading import Thread
+from jellyfin_api import JellyfinAPI
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -47,19 +51,18 @@ setup_logging()
 
 # Проверка переменных окружения
 required_env_vars = [
-    'LOG_LEVEL', 'LOG_FILE', 'USE_CONSOLE', 'LOG_FORMAT', 'WHITELIST_FILE', 'TELEGRAM_TOKEN',
+    'LOG_LEVEL', 'LOG_FILE', 'USE_CONSOLE', 'LOG_FORMAT', 'TELEGRAM_TOKEN',
     'RUTRACKER_USERNAME', 'RUTRACKER_PASSWORD', 'SAVE_DIRECTORY', 'MIN_FILE_SIZE_GB', 'MAX_FILE_SIZE_GB',
-    'UNAUTHORIZED_LOG_FILE', 'FORBIDDEN_WORDS', 'BASE_FILE', 'MAX_RESULTS'
+    'UNAUTHORIZED_LOG_FILE', 'FORBIDDEN_WORDS', 'MAX_RESULTS',
+    'JELLYFIN_URL', 'JELLYFIN_API_KEY'
 ]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     raise ValueError(f"Отсутствующие переменные окружения: {', '.join(missing_vars)}")
 
 # Настройки из переменных окружения
-whitelist_file = os.getenv('WHITELIST_FILE')
 min_file_size_gb = float(os.getenv('MIN_FILE_SIZE_GB'))
 max_file_size_gb = float(os.getenv('MAX_FILE_SIZE_GB'))
-base_file = os.getenv('BASE_FILE')
 forbidden_words = os.getenv('FORBIDDEN_WORDS').split(',')
 max_results = int(os.getenv('MAX_RESULTS'))
 
@@ -73,12 +76,14 @@ if not all([TOKEN, RUTRACKER_USERNAME, RUTRACKER_PASSWORD, SAVE_DIRECTORY]):
     raise ValueError("Не все необходимые переменные окружения заданы")
 
 ensure_directory_exists(SAVE_DIRECTORY)
-ensure_file_exists(whitelist_file, default_content="")
-ensure_file_exists(base_file, default_content="title\n")
 
 bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
-whitelist = load_whitelist(whitelist_file)
+jellyfin_api = JellyfinAPI()
+
+# Проверка наличия фильма в Jellyfin
+def is_movie_in_jellyfin(title):
+    return jellyfin_api.movie_exists(title)
 
 # Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
@@ -91,42 +96,41 @@ def send_message_without_search_button(chat_id, text):
     bot.send_message(chat_id, text)
 
 def log_unauthorized_access(user_id):
-    if unauthorized_logger:
+    if 'unauthorized_logger' in globals() and unauthorized_logger:
         unauthorized_logger.info(f"Неавторизованный доступ: {user_id}")
 
 def check_access(chat_id):
-    if str(chat_id) not in whitelist:
+    if not is_user_allowed(chat_id):
         log_unauthorized_access(chat_id)
         send_message_without_search_button(chat_id, "Доступ запрещен.")
         return False
     return True
 
-def log_title_to_base_file(base_file, title, forbidden_words):
-    title = title.split('/')[0].strip()
-    if not log_search_result(base_file, title, forbidden_words, []):
-        return False
-    return True
-
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    add_user(message.chat.id)
     if not check_access(message.chat.id):
         return
-    send_message_with_search_button(message.chat.id, "Привет! Используй команду /f [название фильма]\nдля поиска или нажми кнопку ниже.\nМожно делать общий поиск по жанрам или годам\nПример: комедия 2024.")
+    send_message_with_search_button(
+        message.chat.id,
+        "Привет! Используй команду /f [название фильма]\nдля поиска или нажми кнопку ниже.\nМожно делать общий поиск по жанрам или годам\nПример: комедия 2024."
+    )
 
 @bot.message_handler(commands=['info'])
 def send_info(message):
     if not check_access(message.chat.id):
         return
-    movie_count = get_movie_count(base_file)
-    user_count = get_user_count(whitelist_file)
-    bot.send_message(message.chat.id, f"Всего на сервере фильмов: {movie_count}\nВсего пользователей бота: {user_count}")
+    user_count = get_user_count()
+    bot.send_message(
+        message.chat.id,
+        f"Всего пользователей бота: {user_count}"
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step, msg.message_id)
 
-    # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
     bot.send_message(call.message.chat.id, "Вы можете отменить поиск, нажав кнопку ниже.", reply_markup=keyboard)
@@ -135,7 +139,6 @@ def search_prompt(call):
 def get_url_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
 
-    # Добавление кнопки "Отмена"
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
     bot.send_message(call.message.chat.id, "Вы можете отменить загрузку, нажав кнопку ниже.", reply_markup=keyboard)
@@ -160,7 +163,6 @@ def process_get_url_step(message):
     try:
         torrent_content = rutracker_api.download_torrent_by_url(url)
         if torrent_content:
-            # Извлечение id топика из URL
             topic_id_match = re.search(r't=(\d+)', url)
             if topic_id_match:
                 topic_id = topic_id_match.group(1)
@@ -169,22 +171,23 @@ def process_get_url_step(message):
                     f.write(torrent_content)
                 os.chmod(file_path, 0o755)
                 bot.delete_message(chat_id=message.chat.id, message_id=status_message.message_id)
-                
-                # Извлечение заголовка страницы
+
                 title = rutracker_api.get_title_from_url(url)
                 title_display = title.split('/')[0].strip() if title else f"Торрент {topic_id}"
-                
-                bot.send_document(message.chat.id, torrent_content, 
-                                 visible_file_name=f"{topic_id}.torrent", 
-                                 caption=f"✅ Вот ваш торрент-файл: \"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
-                
-                # Логирование информации о загруженном файле
-                logging.info(f"Торрент-файл загружен: {file_path}")
 
-                if title:
-                    if not log_title_to_base_file(base_file, title, forbidden_words):
-                        bot.send_message(message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
-                # Добавление кнопок поиска после отправки торрент-файла
+                # Проверка через Jellyfin
+                if title and is_movie_in_jellyfin(title_display):
+                    bot.send_message(message.chat.id, "😆 Файл уже есть на Plex/Jellyfin. Торрент не будет загружен.")
+                    return
+
+                bot.send_document(
+                    message.chat.id,
+                    torrent_content,
+                    visible_file_name=f"{topic_id}.torrent",
+                    caption=f"✅ Вот ваш торрент-файл: \"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex"
+                )
+
+                logging.info(f"Торрент-файл загружен: {file_path}")
                 send_message_with_search_button(message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
             else:
                 bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Не удалось извлечь id топика из ссылки.")
@@ -192,7 +195,6 @@ def process_get_url_step(message):
             raise ValueError("Ошибка при загрузке торрент-файла")
     except Exception as e:
         logging.error(f"Ошибка при загрузке торрент-файла: {e}")
-        # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
         bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
@@ -208,8 +210,9 @@ def search_movie(message):
     search_movie_internal(message, query)
 
 def search_movie_internal(message, query):
-    if is_query_already_searched(base_file, query):
-        send_message_with_search_button(message.chat.id, "Файл уже есть на сервере.")
+    # Проверка через Jellyfin
+    if is_movie_in_jellyfin(query):
+        send_message_with_search_button(message.chat.id, "Файл уже есть на сервере (Jellyfin).")
         return
 
     status_message = bot.send_message(message.chat.id, f"🔍 Ищу фильм '{query}' на RuTracker...")
@@ -249,11 +252,9 @@ def search_movie_internal(message, query):
         send_message_with_search_button(message.chat.id, f"По запросу '{query}' чет я ничего не нашел :(")
         return
 
-    # Сортировка сначала по количеству сидов, затем по размеру файла
     results = sorted(results, key=lambda x: (x.get('seeders_count', 0), x.get('size_value', 0)), reverse=True)[:max_results]
     result_text = f"Найдено {len(results)} результатов по запросу '{query}' ({min_file_size_gb}-{max_file_size_gb} ГБ):\n\n"
     for idx, result in enumerate(results, 1):
-        # Убедимся, что seeders отображается правильно
         seeders_display = result.get('seeders_count', 0)
         if seeders_display == 0 and 'seeders' in result and result['seeders'] != "0":
             try:
@@ -261,12 +262,11 @@ def search_movie_internal(message, query):
                 seeders_display = int(seeders_clean) if seeders_clean else 0
             except:
                 seeders_display = 0
-        
+
         result_text += f"{idx}. {result['title']}\n   Размер: {result['size']}, Сиды: {seeders_display}\n\n"
 
     markup = InlineKeyboardMarkup()
     for idx, result in enumerate(results, 1):
-        # Убедимся, что seeders отображается правильно в кнопках
         seeders_display = result.get('seeders_count', 0)
         if seeders_display == 0 and 'seeders' in result and result['seeders'] != "0":
             try:
@@ -274,9 +274,11 @@ def search_movie_internal(message, query):
                 seeders_display = int(seeders_clean) if seeders_clean else 0
             except:
                 seeders_display = 0
-            
-        markup.add(InlineKeyboardButton(f"#{idx} [Размер: {result['size']}, Сиды: {seeders_display}]", 
-                                      callback_data=f"download_{result['topic_id']}_{query}"))
+
+        markup.add(InlineKeyboardButton(
+            f"#{idx} [Размер: {result['size']}, Сиды: {seeders_display}]",
+            callback_data=f"download_{result['topic_id']}_{query}"
+        ))
 
     markup.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
 
@@ -290,19 +292,20 @@ def download_torrent(call):
     data = call.data.replace('download_', '').split('_')
     topic_id, query = data[0], '_'.join(data[1:])
 
-    if is_title_already_logged(base_file, query):
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее.")
+    # Проверка через Jellyfin
+    if is_movie_in_jellyfin(query):
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❗️ Этот торрент уже был загружен ранее (Jellyfin).")
         return
 
     search_result = rutracker_api.search_movie(query)
-    title_display = query  # По умолчанию используем поисковый запрос
-    
+    title_display = query
+
     for result in search_result["results"]:
         if result["topic_id"] == topic_id:
             title = result["title"].split('/')[0].strip()
-            title_display = title  # Получаем название из результатов поиска
-            if not log_title_to_base_file(base_file, title, forbidden_words):
-                bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex. Торрент не будет загружен.")
+            title_display = title
+            if is_movie_in_jellyfin(title_display):
+                bot.send_message(call.message.chat.id, "😆 Файл уже есть на Plex/Jellyfin. Торрент не будет загружен.")
                 return
             break
 
@@ -318,20 +321,20 @@ def download_torrent(call):
             os.chmod(file_path, 0o755)
 
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-            bot.send_document(call.message.chat.id, torrent_data, 
-                             visible_file_name=f"rutracker_{topic_id}.torrent", 
-                             caption=f"✅ Вот ваш торрент-файл: \"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex")
+            bot.send_document(
+                call.message.chat.id,
+                torrent_data,
+                visible_file_name=f"rutracker_{topic_id}.torrent",
+                caption=f"✅ Вот ваш торрент-файл: \"{title_display}\"\n\nБольше ничего делать не надо - всё само скачается и скоро появится на нашем Plex"
+            )
 
-            # Логирование информации о загруженном файле
             logging.info(f"Торрент-файл загружен: {file_path}")
 
-            # Добавление кнопок поиска после отправки торрент-файла
             send_message_with_search_button(call.message.chat.id, "Вы можете начать новый поиск или загрузить другой файл.")
         else:
             raise ValueError("Ошибка при загрузке торрент-файла")
     except Exception as e:
         logging.error(f"Ошибка при загрузке торрент-файла: {e}")
-        # Добавление кнопки "Отмена"
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("Отмена", callback_data="cancel_search"))
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
@@ -345,5 +348,3 @@ def cancel_search(call):
 if __name__ == "__main__":
     logging.info("Бот запущен")
     bot.polling(none_stop=True)
-
-

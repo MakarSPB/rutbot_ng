@@ -90,29 +90,22 @@ class RutrackerAPI:
                     size = row.select_one("td.tor-size").text.strip() if row.select_one("td.tor-size") else "Неизвестно"
                     
                     # Улучшенное извлечение сидов
-                    # Сначала проверяем, есть ли ячейка с классом seeders
                     seeders_element = row.select_one("td.seeders")
                     
                     if seeders_element:
-                        # Проверяем, есть ли вложенный тег <b> (на rutracker часто используется)
                         seeders_bold = seeders_element.select_one("b")
                         if seeders_bold:
                             seeders_text = seeders_bold.text.strip()
                         else:
                             seeders_text = seeders_element.text.strip()
-                        
-                        # Очищаем текст от нецифровых символов
                         seeders_clean = re.sub(r'\D', '', seeders_text)
                         seeders_count = int(seeders_clean) if seeders_clean else 0
                     else:
-                        # Если ячейка не найдена, ищем по индексу (некоторые строки могут не иметь класса)
                         cells = row.select("td")
-                        if len(cells) >= 8:  # Обычно сиды находятся в 7-й или 8-й ячейке
-                            # Проверяем разные колонки, которые могут содержать сиды
+                        if len(cells) >= 8:
                             for i in [6, 7, 8]:
                                 if i < len(cells):
                                     cell_text = cells[i].text.strip()
-                                    # Если текст похож на число, предполагаем, что это сиды
                                     if re.match(r'^\d+$', cell_text):
                                         seeders_text = cell_text
                                         seeders_count = int(cell_text)
@@ -130,8 +123,8 @@ class RutrackerAPI:
                         "title": title,
                         "topic_id": topic_id,
                         "size": size,
-                        "seeders": str(seeders_count),  # Строковое представление для совместимости
-                        "seeders_count": seeders_count,  # Числовое значение для сортировки
+                        "seeders": str(seeders_count),
+                        "seeders_count": seeders_count,
                         "download_link": f"{self.base_url}dl.php?t={topic_id}"
                     })
                 except Exception as e:
