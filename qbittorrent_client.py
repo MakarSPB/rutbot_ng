@@ -9,6 +9,7 @@ class QBittorrentClient:
         self.save_path = os.getenv('QBITTORRENT_SAVE_PATH')
         self.category = os.getenv('QBITTORRENT_CATEGORY')
         self.session = requests.Session()
+        self.session.trust_env = False  # Отключаем использование прокси из окружения
         self._login()
 
     def _login(self):
@@ -17,7 +18,7 @@ class QBittorrentClient:
             'username': self.username,
             'password': self.password
         }
-        resp = self.session.post(login_url, data=data)
+        resp = self.session.post(login_url, data=data, proxies={}, timeout=10)
         if resp.text != 'Ok.':
             raise Exception("Не удалось авторизоваться в qBittorrent Web UI")
 
@@ -29,7 +30,7 @@ class QBittorrentClient:
             data['savepath'] = self.save_path
         if self.category:
             data['category'] = self.category
-        resp = self.session.post(add_url, data=data, files=files)
+        resp = self.session.post(add_url, data=data, files=files, proxies={}, timeout=10)
         if resp.status_code != 200:
             raise Exception(f"Ошибка добавления торрента: {resp.text}")
 
