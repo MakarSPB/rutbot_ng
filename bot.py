@@ -9,6 +9,9 @@ from utils import (
     get_user_count,
     add_user,
     is_user_allowed,
+    get_all_users,
+    get_user_role,
+    set_user_role,
 )
 from rutracker_api import RutrackerAPI
 from jellyfin_api import JellyfinAPI
@@ -111,9 +114,14 @@ def send_welcome(message):
     add_user(message.chat.id)
     if not check_access(message.chat.id):
         return
+    role = get_user_role(message.chat.id)
+    if role == 'admin':
+        welcome = "Вы администратор. "
+    else:
+        welcome = ""
     send_message_with_search_button(
         message.chat.id,
-        "Привет! Используй команду /f [название фильма]\nдля поиска или нажми кнопку ниже.\nМожно делать общий поиск по жанрам или годам\nПример: комедия 2024."
+        f"{welcome}Привет! Используй команду /f [название фильма]\nдля поиска или нажми кнопку ниже.\nМожно делать общий поиск по жанрам или годам\nПример: комедия 2024."
     )
 
 @bot.message_handler(commands=['info'])
@@ -125,6 +133,35 @@ def send_info(message):
         message.chat.id,
         f"Всего пользователей бота: {user_count}"
     )
+
+@bot.message_handler(commands=['users'])
+def list_users(message):
+    if get_user_role(message.chat.id) != 'admin':
+        bot.send_message(message.chat.id, "Доступ запрещён.")
+        return
+    users = get_all_users()
+    if not users:
+        bot.send_message(message.chat.id, "Пользователей нет.")
+        return
+    text = "Пользователи:\n"
+    for user in users:
+        text += f"ID: {user['telegram_id']}, Роль: {user['role']}\n"
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(commands=['setrole'])
+def set_role(message):
+    if get_user_role(message.chat.id) != 'admin':
+        bot.send_message(message.chat.id, "Доступ запрещён.")
+        return
+    try:
+        _, user_id, role = message.text.split()
+        if role not in ('user', 'admin'):
+            bot.send_message(message.chat.id, "Роль должна быть 'user' или 'admin'.")
+            return
+        set_user_role(user_id, role)
+        bot.send_message(message.chat.id, f"Роль пользователя {user_id} изменена на {role}")
+    except Exception:
+        bot.send_message(message.chat.id, "Использование: /setrole <telegram_id> <role>")
 
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
 def search_prompt(call):
