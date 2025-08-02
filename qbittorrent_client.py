@@ -13,8 +13,10 @@ class QBittorrentClient:
             host=self.host,
             username=self.username,
             password=self.password,
-            REQUESTS_ARGS={"proxies": {}, "timeout": 10, "trust_env": False}
+            REQUESTS_ARGS={"proxies": {}, "timeout": 10}
         )
+        # Отключаем использование прокси из окружения на уровне сессии
+        self.client._requests.Session.trust_env = False
         try:
             self.client.auth_log_in()
         except qbittorrentapi.LoginFailed as e:
