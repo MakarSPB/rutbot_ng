@@ -15,6 +15,7 @@ from utils import (
 )
 from rutracker_api import RutrackerAPI
 from jellyfin_api import JellyfinAPI
+from qbittorrent_client import QBittorrentClient
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -83,6 +84,7 @@ ensure_directory_exists(SAVE_DIRECTORY)
 bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
 jellyfin_api = JellyfinAPI()
+qbittorrent_client = QBittorrentClient()
 
 # Проверка наличия фильма в Jellyfin
 def is_movie_in_jellyfin(title):
@@ -108,6 +110,19 @@ def check_jellyfin_status():
         return resp.status_code == 200
     except Exception as e:
         logging.error(f"Ошибка проверки Jellyfin: {e}")
+        return False
+
+# Проверка подключения к qBittorrent (без использования proxy)
+def check_qbittorrent_status():
+    try:
+        resp = qbittorrent_client.session.get(
+            f"{qbittorrent_client.url}/api/v2/app/version",
+            proxies={},
+            timeout=10
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        logging.error(f"Ошибка проверки qBittorrent: {e}")
         return False
 
 # Функции для работы с ботом
@@ -224,10 +239,12 @@ def delete_user(message):
 def send_status(message):
     rutracker_status = check_rutracker_status()
     jellyfin_status = check_jellyfin_status()
+    qbittorrent_status = check_qbittorrent_status()
     status_text = (
         f"Статус подключения:\n"
         f"RuTracker: {'✅ Подключено' if rutracker_status else '❌ Нет подключения'}\n"
-        f"Jellyfin: {'✅ Подключено' if jellyfin_status else '❌ Нет подключения'}"
+        f"Jellyfin: {'✅ Подключено' if jellyfin_status else '❌ Нет подключения'}\n"
+        f"qBittorrent: {'✅ Подключено' if qbittorrent_status else '❌ Нет подключения'}"
     )
     bot.send_message(message.chat.id, status_text)
 
@@ -244,7 +261,7 @@ def send_help(message):
             "/users — список пользователей\n"
             "/setrole <telegram_id> <role> — сменить роль пользователя (user/admin)\n"
             "/deleteuser <telegram_id> — удалить пользователя\n"
-            "/status — статус подключения к RuTracker и Jellyfin\n"
+            "/status — статус подключения к RuTracker, Jellyfin и qBittorrent\n"
             "/help — показать это сообщение\n"
         )
     else:
@@ -253,7 +270,7 @@ def send_help(message):
             "/start — приветствие и меню\n"
             "/f <название> — поиск и скачивание фильма\n"
             "/info — статистика пользователей\n"
-            "/status — статус подключения к RuTracker и Jellyfin\n"
+            "/status — статус подключения к RuTracker, Jellyfin и qBittorrent\n"
             "/help — показать это сообщение\n"
         )
     bot.send_message(message.chat.id, help_text)

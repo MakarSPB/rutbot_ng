@@ -32,3 +32,10 @@ class QBittorrentClient:
         resp = self.session.post(add_url, data=data, files=files)
         if resp.status_code != 200:
             raise Exception(f"Ошибка добавления торрента: {resp.text}")
+
+    def check_connection(self):
+        try:
+            resp = self.session.get(f"{self.url}/api/v2/app/version", proxies={}, timeout=10)
+            return resp.status_code == 200
+        except Exception:
+            return False
