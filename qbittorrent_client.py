@@ -2,6 +2,10 @@ import os
 import qbittorrentapi
 from io import BytesIO
 
+# Удаляем переменные окружения прокси до создания клиента
+for var in ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"]:
+    os.environ.pop(var, None)
+
 class QBittorrentClient:
     def __init__(self):
         self.host = os.getenv('QBITTORRENT_URL')
@@ -15,7 +19,6 @@ class QBittorrentClient:
             password=self.password,
             REQUESTS_ARGS={"proxies": {}, "timeout": 10}
         )
-        self.client.request_manager.session.trust_env = False
         try:
             self.client.auth_log_in()
         except qbittorrentapi.LoginFailed as e:
