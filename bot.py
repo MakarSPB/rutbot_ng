@@ -115,12 +115,7 @@ def check_jellyfin_status():
 # Проверка подключения к qBittorrent (без использования proxy)
 def check_qbittorrent_status():
     try:
-        resp = qbittorrent_client.session.get(
-            f"{qbittorrent_client.url}/api/v2/app/version",
-            proxies={},
-            timeout=10
-        )
-        return resp.status_code == 200
+        return qbittorrent_client.check_connection()
     except Exception as e:
         logging.error(f"Ошибка проверки qBittorrent: {e}")
         return False
