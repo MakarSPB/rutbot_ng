@@ -19,7 +19,7 @@ class QBittorrentClient:
         }
         resp = self.session.post(login_url, data=data)
         if resp.text != 'Ok.':
-            raise Exception("Не удалось авторизоваться в qBittorrent Web UI")
+            raise Exception("РќРµ СѓРґР°Р»РѕСЃСЊ Р°РІС‚РѕСЂРёР·РѕРІР°С‚СЊСЃСЏ РІ qBittorrent Web UI")
 
     def add_torrent(self, torrent_bytes, filename):
         add_url = f"{self.url}/api/v2/torrents/add"
@@ -31,7 +31,7 @@ class QBittorrentClient:
             data['category'] = self.category
         resp = self.session.post(add_url, data=data, files=files)
         if resp.status_code != 200:
-            raise Exception(f"Ошибка добавления торрента: {resp.text}")
+            raise Exception(f"РћС€РёР±РєР° РґРѕР±Р°РІР»РµРЅРёСЏ С‚РѕСЂСЂРµРЅС‚Р°: {resp.text}")
 
     def check_connection(self):
         try:
