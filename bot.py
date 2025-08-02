@@ -105,15 +105,29 @@ def log_unauthorized_access(user_id):
 def check_access(chat_id):
     if not is_user_allowed(chat_id):
         log_unauthorized_access(chat_id)
-        send_message_without_search_button(chat_id, "Доступ запрещен.")
+        # Не отвечаем пользователям, которых нет в базе
         return False
     return True
 
+# Глобальный фильтр: не отвечать неавторизованным пользователям
+def authorized_only(func):
+    def wrapper(message, *args, **kwargs):
+        if not check_access(message.chat.id):
+            return
+        return func(message, *args, **kwargs)
+    return wrapper
+
+def authorized_only_callback(func):
+    def wrapper(call, *args, **kwargs):
+        if not check_access(call.message.chat.id):
+            return
+        return func(call, *args, **kwargs)
+    return wrapper
+
 @bot.message_handler(commands=['start'])
+@authorized_only
 def send_welcome(message):
     add_user(message.chat.id)
-    if not check_access(message.chat.id):
-        return
     role = get_user_role(message.chat.id)
     if role == 'admin':
         welcome = "Вы администратор. "
@@ -125,9 +139,8 @@ def send_welcome(message):
     )
 
 @bot.message_handler(commands=['info'])
+@authorized_only
 def send_info(message):
-    if not check_access(message.chat.id):
-        return
     user_count = get_user_count()
     bot.send_message(
         message.chat.id,
@@ -135,6 +148,7 @@ def send_info(message):
     )
 
 @bot.message_handler(commands=['users'])
+@authorized_only
 def list_users(message):
     if get_user_role(message.chat.id) != 'admin':
         bot.send_message(message.chat.id, "Доступ запрещён.")
@@ -149,6 +163,7 @@ def list_users(message):
     bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=['setrole'])
+@authorized_only
 def set_role(message):
     if get_user_role(message.chat.id) != 'admin':
         bot.send_message(message.chat.id, "Доступ запрещён.")
@@ -163,7 +178,32 @@ def set_role(message):
     except Exception:
         bot.send_message(message.chat.id, "Использование: /setrole <telegram_id> <role>")
 
+@bot.message_handler(commands=['help'])
+@authorized_only
+def send_help(message):
+    role = get_user_role(message.chat.id)
+    if role == 'admin':
+        help_text = (
+            "Доступные команды для администратора:\n"
+            "/start — приветствие и меню\n"
+            "/f <название> — поиск и скачивание фильма\n"
+            "/info — статистика пользователей\n"
+            "/users — список пользователей\n"
+            "/setrole <telegram_id> <role> — сменить роль пользователя (user/admin)\n"
+            "/help — показать это сообщение\n"
+        )
+    else:
+        help_text = (
+            "Доступные команды:\n"
+            "/start — приветствие и меню\n"
+            "/f <название> — поиск и скачивание фильма\n"
+            "/info — статистика пользователей\n"
+            "/help — показать это сообщение\n"
+        )
+    bot.send_message(message.chat.id, help_text)
+
 @bot.callback_query_handler(func=lambda call: call.data == "search_prompt")
+@authorized_only_callback
 def search_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Введите название фильма для поиска:")
     bot.register_next_step_handler(msg, process_search_step, msg.message_id)
@@ -173,6 +213,7 @@ def search_prompt(call):
     bot.send_message(call.message.chat.id, "Вы можете отменить поиск, нажав кнопку ниже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "get_url")
+@authorized_only_callback
 def get_url_prompt(call):
     msg = bot.send_message(call.message.chat.id, "Отправьте ссылку для загрузки торрент-файла:")
 
@@ -183,6 +224,8 @@ def get_url_prompt(call):
     bot.register_next_step_handler(msg, process_get_url_step)
 
 def process_search_step(message, prompt_message_id):
+    if not check_access(message.chat.id):
+        return
     if message.text.startswith('/'):
         send_message_with_search_button(message.chat.id, "Пожалуйста, укажите название фильма без команды.")
         return
@@ -191,6 +234,8 @@ def process_search_step(message, prompt_message_id):
     search_movie_internal(message, message.text)
 
 def process_get_url_step(message):
+    if not check_access(message.chat.id):
+        return
     if message.text.startswith('/'):
         send_message_with_search_button(message.chat.id, "Пожалуйста, отправьте ссылку без команды.")
         return
@@ -237,9 +282,8 @@ def process_get_url_step(message):
         bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text="❌ Ошибка при загрузке торрент-файла. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.message_handler(commands=['f'])
+@authorized_only
 def search_movie(message):
-    if not check_access(message.chat.id):
-        return
     query = message.text.replace('/f', '').strip()
     if not query:
         send_message_with_search_button(message.chat.id, "Пожалуйста, укажите название фильма. Например: /f Матрица")
@@ -247,6 +291,8 @@ def search_movie(message):
     search_movie_internal(message, query)
 
 def search_movie_internal(message, query):
+    if not check_access(message.chat.id):
+        return
     # Проверка через Jellyfin
     if is_movie_in_jellyfin(query):
         send_message_with_search_button(message.chat.id, "Файл уже есть на сервере (Jellyfin).")
@@ -322,10 +368,8 @@ def search_movie_internal(message, query):
     bot.edit_message_text(chat_id=message.chat.id, message_id=status_message.message_id, text=result_text, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('download_'))
+@authorized_only_callback
 def download_torrent(call):
-    if not check_access(call.message.chat.id):
-        return
-
     data = call.data.replace('download_', '').split('_')
     topic_id, query = data[0], '_'.join(data[1:])
 
@@ -377,6 +421,7 @@ def download_torrent(call):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="❌ Не удалось скачать торрент-файл. Пожалуйста, попробуйте ещё раз позже.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_search")
+@authorized_only_callback
 def cancel_search(call):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
     send_message_with_search_button(call.message.chat.id, "Поиск отменён. Используйте команду /start для нового поиска.")
