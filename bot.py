@@ -330,6 +330,14 @@ def process_get_url_step(message):
                     bot.send_message(message.chat.id, "😆 Файл уже есть на Plex/Jellyfin. Торрент не будет загружен.")
                     return
 
+                # ДОБАВЛЯЕМ В QBITTORRENT
+                try:
+                    qbittorrent_client.add_torrent(torrent_content, f"{topic_id}.torrent")
+                    logging.info(f"Торрент-файл отправлен в qBittorrent: {topic_id}.torrent")
+                except Exception as e:
+                    logging.error(f"Ошибка при добавлении торрента в qBittorrent: {e}")
+                    bot.send_message(message.chat.id, "❌ Не удалось добавить торрент в qBittorrent.")
+
                 bot.send_document(
                     message.chat.id,
                     torrent_content,
@@ -468,6 +476,14 @@ def download_torrent(call):
             with open(file_path, 'wb') as f:
                 f.write(torrent_data)
             os.chmod(file_path, 0o755)
+
+            # ДОБАВЛЯЕМ В QBITTORRENT
+            try:
+                qbittorrent_client.add_torrent(torrent_data, f"{topic_id}.torrent")
+                logging.info(f"Торрент-файл отправлен в qBittorrent: {topic_id}.torrent")
+            except Exception as e:
+                logging.error(f"Ошибка при добавлении торрента в qBittorrent: {e}")
+                bot.send_message(call.message.chat.id, "❌ Не удалось добавить торрент в qBittorrent.")
 
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
             bot.send_document(
