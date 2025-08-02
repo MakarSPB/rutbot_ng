@@ -2,12 +2,11 @@ import os
 import qbittorrentapi
 from io import BytesIO
 
-# Удаляем переменные окружения прокси до создания клиента
-for var in ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"]:
-    os.environ.pop(var, None)
-
 class QBittorrentClient:
     def __init__(self):
+        # Удаляем переменные окружения прокси только для этого клиента
+        for var in ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"]:
+            os.environ.pop(var, None)
         self.host = os.getenv('QBITTORRENT_URL')
         self.username = os.getenv('QBITTORRENT_USERNAME')
         self.password = os.getenv('QBITTORRENT_PASSWORD')
