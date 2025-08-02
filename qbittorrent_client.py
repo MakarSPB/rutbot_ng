@@ -24,13 +24,19 @@ class QBittorrentClient:
             raise Exception(f"Не удалось авторизоваться в qBittorrent Web UI: {e}")
 
     def add_torrent(self, torrent_bytes, filename):
+        from qbittorrentapi.exceptions import APIError
         torrent_file = BytesIO(torrent_bytes)
         torrent_file.name = filename
-        self.client.torrents_add(
-            torrent_files=torrent_file,
-            save_path=self.save_path,
-            category=self.category
-        )
+        try:
+            result = self.client.torrents_add(
+                torrent_files=torrent_file,
+                save_path=self.save_path,
+                category=self.category
+            )
+            print("qBittorrent add_torrent result:", result)
+        except APIError as e:
+            print("Ошибка добавления торрента в qBittorrent:", e)
+            raise
 
     def check_connection(self):
         try:
