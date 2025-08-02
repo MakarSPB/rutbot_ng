@@ -19,7 +19,8 @@ class JellyfinAPI:
         }
         if self.library_id:
             params['ParentId'] = self.library_id
-        resp = self.session.get(f"{self.url}/emby/Items", params=params)
+        # явно отключаем прокси дл€ Jellyfin
+        resp = self.session.get(f"{self.url}/emby/Items", params=params, proxies={})
         if resp.status_code == 200:
             data = resp.json()
             for item in data.get('Items', []):
