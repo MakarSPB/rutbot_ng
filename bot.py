@@ -88,6 +88,23 @@ jellyfin_api = JellyfinAPI()
 def is_movie_in_jellyfin(title):
     return jellyfin_api.movie_exists(title)
 
+# Проверка подключения к RuTracker
+def check_rutracker_status():
+    try:
+        return rutracker_api.login()
+    except Exception as e:
+        logging.error(f"Ошибка проверки RuTracker: {e}")
+        return False
+
+# Проверка подключения к Jellyfin
+def check_jellyfin_status():
+    try:
+        # Пробуем получить список фильмов с пустым поиском
+        return jellyfin_api.movie_exists("")
+    except Exception as e:
+        logging.error(f"Ошибка проверки Jellyfin: {e}")
+        return False
+
 # Функции для работы с ботом
 def send_message_with_search_button(chat_id, text):
     keyboard = InlineKeyboardMarkup()
@@ -197,6 +214,18 @@ def delete_user(message):
     except Exception:
         bot.send_message(message.chat.id, "Использование: /deleteuser <telegram_id>")
 
+@bot.message_handler(commands=['status'])
+@authorized_only
+def send_status(message):
+    rutracker_status = check_rutracker_status()
+    jellyfin_status = check_jellyfin_status()
+    status_text = (
+        f"Статус подключения:\n"
+        f"RuTracker: {'✅ Подключено' if rutracker_status else '❌ Нет подключения'}\n"
+        f"Jellyfin: {'✅ Подключено' if jellyfin_status else '❌ Нет подключения'}"
+    )
+    bot.send_message(message.chat.id, status_text)
+
 @bot.message_handler(commands=['help'])
 @authorized_only
 def send_help(message):
@@ -209,6 +238,8 @@ def send_help(message):
             "/info — статистика пользователей\n"
             "/users — список пользователей\n"
             "/setrole <telegram_id> <role> — сменить роль пользователя (user/admin)\n"
+            "/deleteuser <telegram_id> — удалить пользователя\n"
+            "/status — статус подключения к RuTracker и Jellyfin\n"
             "/help — показать это сообщение\n"
         )
     else:
@@ -217,6 +248,7 @@ def send_help(message):
             "/start — приветствие и меню\n"
             "/f <название> — поиск и скачивание фильма\n"
             "/info — статистика пользователей\n"
+            "/status — статус подключения к RuTracker и Jellyfin\n"
             "/help — показать это сообщение\n"
         )
     bot.send_message(message.chat.id, help_text)
