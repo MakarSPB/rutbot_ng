@@ -51,7 +51,11 @@ class RutrackerAPI:
 
     def validate_proxy(self, proxy_url):
         try:
-            response = self.request_with_retries("GET", "http://httpbin.org/ip", proxies={"http": proxy_url})
+            response = self.request_with_retries(
+                "GET",
+                "http://httpbin.org/ip",
+                proxies={"http": proxy_url, "https": proxy_url}
+            )
             return response is not None
         except Exception as e:
             logging.error(f"Ошибка при проверке прокси {proxy_url}: {e}")
