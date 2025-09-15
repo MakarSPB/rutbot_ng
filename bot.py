@@ -1,4 +1,4 @@
-import os
+﻿import os
 import re
 import telebot
 import logging
@@ -94,7 +94,11 @@ def is_main_admin(chat_id):
 
 # Проверка наличия фильма в Jellyfin
 def is_movie_in_jellyfin(title):
-    return jellyfin_api.movie_exists(title)
+    try:
+        return jellyfin_api.movie_exists(title)
+    except Exception as e:
+        logging.warning(f"Проверка Jellyfin недоступна: {e}")
+        return False
 
 # Проверка подключения к RuTracker
 def check_rutracker_status():

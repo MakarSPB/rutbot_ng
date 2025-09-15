@@ -1,4 +1,4 @@
-import os
+ï»¿import os
 import requests
 
 class JellyfinAPI:
@@ -10,7 +10,7 @@ class JellyfinAPI:
         self.session.headers.update({
             'X-Emby-Token': self.api_key
         })
-        self.session.trust_env = False  # <--- ÂÀÆÍÎ!
+        self.session.trust_env = False  # <--- Ð’ÐÐ–ÐÐž!
 
     def movie_exists(self, title):
         params = {
@@ -20,7 +20,7 @@ class JellyfinAPI:
         }
         if self.library_id:
             params['ParentId'] = self.library_id
-        resp = self.session.get(f"{self.url}/emby/Items", params=params, proxies={})
+        resp = self.session.get(f"{self.url}/emby/Items", params=params, proxies={}, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             for item in data.get('Items', []):

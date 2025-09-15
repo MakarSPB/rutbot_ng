@@ -1,7 +1,8 @@
-import os
+﻿import os
 import requests
 import re
 import logging
+import time
 from bs4 import BeautifulSoup
 
 # Чтение ключевых слов и исключающих слов из .env
@@ -16,6 +17,22 @@ class RutrackerAPI:
         self.base_url = "https://rutracker.org/forum/"
         self.logged_in = False
         self.proxies = self.setup_proxies()
+
+    def request_with_retries(self, method, url, retries=3, delay=1, timeout=3, **kwargs):
+        """
+        Универсальный метод для HTTP-запросов с повторными попытками и таймаутом.
+        """
+        for attempt in range(1, retries + 1):
+            try:
+                response = self.session.request(method, url, timeout=timeout, proxies=self.proxies, **kwargs)
+                response.raise_for_status()
+                return response
+            except requests.RequestException as e:
+                logging.warning(f"Попытка {attempt} не удалась для {url}: {e}")
+                if attempt == retries:
+                    logging.error(f"Все попытки исчерпаны для {url}")
+                    return None
+                time.sleep(delay)
 
     def setup_proxies(self):
         if os.getenv('USE_PROXY', 'false').lower() == 'true':
@@ -34,15 +51,15 @@ class RutrackerAPI:
 
     def validate_proxy(self, proxy_url):
         try:
-            requests.get("http://httpbin.org/ip", proxies={"http": proxy_url}, timeout=5)
-            return True
+            response = self.request_with_retries("GET", "http://httpbin.org/ip", proxies={"http": proxy_url})
+            return response is not None
         except Exception as e:
             logging.error(f"Ошибка при проверке прокси {proxy_url}: {e}")
             return False
 
     def make_request(self, method, endpoint, **kwargs):
         url = self.base_url + endpoint
-        return self.session.request(method, url, proxies=self.proxies, **kwargs)
+        return self.request_with_retries(method, url, **kwargs)
 
     def login(self):
         if self.logged_in:
@@ -57,9 +74,11 @@ class RutrackerAPI:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         try:
-            response = self.session.post(login_url, data=payload, headers=headers, proxies=self.proxies)
-            self.logged_in = "logged-in" in response.text or "logout" in response.text
-            return self.logged_in
+            response = self.request_with_retries('POST', login_url, data=payload, headers=headers)
+            if response:
+                self.logged_in = "logged-in" in response.text or "logout" in response.text
+                return self.logged_in
+            return False
         except Exception as e:
             logging.error(f"Ошибка при авторизации: {e}")
             return False
@@ -73,7 +92,9 @@ class RutrackerAPI:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         try:
-            response = self.session.get(search_url, params=params, headers=headers, proxies=self.proxies)
+            response = self.request_with_retries('GET', search_url, params=params, headers=headers)
+            if not response:
+                return {"success": False, "message": "Ошибка при поиске: не удалось получить ответ"}
             soup = BeautifulSoup(response.text, "html.parser")
             results = []
 
@@ -150,8 +171,8 @@ class RutrackerAPI:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         try:
-            response = self.session.get(download_url, headers=headers, proxies=self.proxies, stream=True)
-            if response.status_code == 200:
+            response = self.request_with_retries('GET', download_url, headers=headers, stream=True)
+            if response and response.status_code == 200:
                 return response.content
             return None
         except Exception as e:
@@ -165,9 +186,9 @@ class RutrackerAPI:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
         try:
-            response = self.session.get(page_url, headers=headers, proxies=self.proxies)
-            if response.status_code != 200:
-                logging.error(f"Ошибка при загрузке страницы: {response.status_code}")
+            response = self.request_with_retries('GET', page_url, headers=headers)
+            if not response or response.status_code != 200:
+                logging.error(f"Ошибка при загрузке страницы: {response.status_code if response else 'нет ответа'}")
                 return None
 
             soup = BeautifulSoup(response.text, "html.parser")
@@ -177,11 +198,11 @@ class RutrackerAPI:
                 return None
 
             download_url = self.base_url + download_link_element["href"]
-            torrent_response = self.session.get(download_url, headers=headers, proxies=self.proxies, stream=True)
-            if torrent_response.status_code == 200:
+            torrent_response = self.request_with_retries('GET', download_url, headers=headers, stream=True)
+            if torrent_response and torrent_response.status_code == 200:
                 return torrent_response.content
             else:
-                logging.error(f"Ошибка при загрузке торрента: {torrent_response.status_code}")
+                logging.error(f"Ошибка при загрузке торрента: {torrent_response.status_code if torrent_response else 'нет ответа'}")
                 return None
         except Exception as e:
             logging.error(f"Ошибка при загрузке торрента по ссылке: {e}")
@@ -226,8 +247,8 @@ class RutrackerAPI:
 
     def get_title_from_url(self, url):
         try:
-            response = self.session.get(url, proxies=self.proxies)
-            if response.status_code == 200:
+            response = self.request_with_retries('GET', url)
+            if response and response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 title_tag = soup.find('title')
                 if title_tag:
