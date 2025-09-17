@@ -19,7 +19,9 @@ class RutrackerAPI:
         self.proxies = self.setup_proxies()
 
     def create_scraper_with_proxy(self):
-        # Создаёт cloudscraper с поддержкой прокси, если требуется
+        scraper = cloudscraper.create_scraper(
+            browser={'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        )
         if os.getenv('USE_PROXY', 'false').lower() == 'true':
             http_proxy = os.getenv('HTTP_PROXY')
             https_proxy = os.getenv('HTTPS_PROXY')
@@ -28,14 +30,8 @@ class RutrackerAPI:
                 proxies['http'] = http_proxy
             if https_proxy:
                 proxies['https'] = https_proxy
-            return cloudscraper.create_scraper(
-                browser={'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
-                request_kwargs={'proxies': proxies}
-            )
-        else:
-            return cloudscraper.create_scraper(
-                browser={'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            )
+            scraper.proxies = proxies
+        return scraper
 
     def request_with_retries(self, method, url, retries=3, delay=1, timeout=3, **kwargs):
         """
@@ -70,11 +66,10 @@ class RutrackerAPI:
 
     def validate_proxy(self, proxy_url):
         try:
-            # cloudscraper поддерживает proxies через request_kwargs
             test_scraper = cloudscraper.create_scraper(
-                browser={'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
-                request_kwargs={'proxies': {"http": proxy_url, "https": proxy_url}}
+                browser={'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             )
+            test_scraper.proxies = {"http": proxy_url, "https": proxy_url}
             response = test_scraper.get("http://httpbin.org/ip", timeout=5)
             return response is not None and response.status_code == 200
         except Exception as e:
