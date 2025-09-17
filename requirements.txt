@@ -1,5 +1,6 @@
-pyTelegramBotAPI
+﻿pyTelegramBotAPI
 requests
 beautifulsoup4
 python-dotenv
 qbittorrent-api
+cloudscraper
