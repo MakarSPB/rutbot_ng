@@ -28,7 +28,7 @@ services:
 
   telegram-bot:
     build:
-      context: ./telegram-bot
+      context: ./
       dockerfile: Dockerfile
     env_file:
       - .env
