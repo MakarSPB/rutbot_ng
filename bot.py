@@ -1,9 +1,10 @@
-﻿import os
+import os
 import re
-import telebot
 import logging
 from dotenv import load_dotenv
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# telebot импортится ниже после загрузки .env и установки TELEGRAM_API_URL
+
 from utils import (
     ensure_directory_exists,
     get_user_count,
@@ -83,6 +84,22 @@ if not all([TOKEN, RUTRACKER_USERNAME, RUTRACKER_PASSWORD, SAVE_DIRECTORY]):
     raise ValueError("Не все необходимые переменные окружения заданы")
 
 ensure_directory_exists(SAVE_DIRECTORY)
+
+# Импорт telebot и типов после загрузки .env
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# При необходимости можно использовать альтернативный API URL Telegram (например, через nginx-прокси).
+# Ожидается, что переменная окружения TELEGRAM_API_URL содержит строку с '{}' для вставки токена,
+# например: https://prx1.yeby.ru/bot{}/
+telegram_api_url = os.getenv('TELEGRAM_API_URL')
+if telegram_api_url:
+    try:
+        # У telebot в модуле apihelper есть константа API_URL — заменяем её на значение из .env
+        telebot.apihelper.API_URL = telegram_api_url
+        logging.info(f"Используется альтернативный Telegram API URL: {telegram_api_url}")
+    except Exception as e:
+        logging.warning(f"Не удалось установить TELEGRAM_API_URL: {e}")
 
 bot = telebot.TeleBot(TOKEN)
 rutracker_api = RutrackerAPI(RUTRACKER_USERNAME, RUTRACKER_PASSWORD)
