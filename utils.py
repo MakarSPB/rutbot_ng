@@ -84,3 +84,19 @@ def get_all_users():
     return users
 
 init_db()
+
+def get_proxies():
+    """Вернуть словарь proxies для requests/сессий или None.
+    Учёт переменной USE_PROXY и переменных HTTP_PROXY / HTTPS_PROXY.
+    """
+    use = os.getenv('USE_PROXY', 'false').lower() == 'true'
+    if not use:
+        return None
+    http = os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
+    https = os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
+    proxies = {}
+    if http:
+        proxies['http'] = http
+    if https:
+        proxies['https'] = https
+    return proxies if proxies else None

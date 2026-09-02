@@ -1,22 +1,22 @@
 import os
 import qbittorrentapi
 from io import BytesIO
+from utils import get_proxies
+
 
 class QBittorrentClient:
     def __init__(self):
-        # Удаляем переменные окружения прокси только для этого клиента
-        for var in ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"]:
-            os.environ.pop(var, None)
         self.host = os.getenv('QBITTORRENT_URL')
         self.username = os.getenv('QBITTORRENT_USERNAME')
         self.password = os.getenv('QBITTORRENT_PASSWORD')
         self.save_path = os.getenv('QBITTORRENT_SAVE_PATH')
         self.category = os.getenv('QBITTORRENT_CATEGORY')
+        proxies = get_proxies() or {}
         self.client = qbittorrentapi.Client(
             host=self.host,
             username=self.username,
             password=self.password,
-            REQUESTS_ARGS={"proxies": {}, "timeout": 10}
+            REQUESTS_ARGS={"proxies": proxies, "timeout": 10}
         )
         try:
             self.client.auth_log_in()

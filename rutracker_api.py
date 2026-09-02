@@ -1,8 +1,9 @@
-﻿import os
+import os
 import cloudscraper
 import re
 import logging
 import time
+from utils import get_proxies
 from bs4 import BeautifulSoup
 
 # Чтение ключевых слов и исключающих слов из .env
@@ -16,20 +17,14 @@ class RutrackerAPI:
         self.session = self.create_scraper_with_proxy()
         self.base_url = "https://rutracker.org/forum/"
         self.logged_in = False
-        self.proxies = self.setup_proxies()
+        self.proxies = get_proxies()
 
     def create_scraper_with_proxy(self):
         scraper = cloudscraper.create_scraper(
             browser={'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         )
-        if os.getenv('USE_PROXY', 'false').lower() == 'true':
-            http_proxy = os.getenv('HTTP_PROXY')
-            https_proxy = os.getenv('HTTPS_PROXY')
-            proxies = {}
-            if http_proxy:
-                proxies['http'] = http_proxy
-            if https_proxy:
-                proxies['https'] = https_proxy
+        proxies = get_proxies()
+        if proxies:
             scraper.proxies = proxies
         return scraper
 
@@ -49,32 +44,7 @@ class RutrackerAPI:
                     return None
                 time.sleep(delay)
 
-    def setup_proxies(self):
-        if os.getenv('USE_PROXY', 'false').lower() == 'true':
-            proxies = {
-                "http": os.getenv('HTTP_PROXY'),
-                "https": os.getenv('HTTPS_PROXY')
-            }
-            if not all(proxies.values()):
-                logging.error("Не настроены прокси-серверы")
-                return None
-            if not all(self.validate_proxy(proxy) for proxy in proxies.values()):
-                logging.error("Некорректные настройки прокси")
-                return None
-            return proxies
-        return None
-
-    def validate_proxy(self, proxy_url):
-        try:
-            test_scraper = cloudscraper.create_scraper(
-                browser={'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            )
-            test_scraper.proxies = {"http": proxy_url, "https": proxy_url}
-            response = test_scraper.get("http://httpbin.org/ip", timeout=5)
-            return response is not None and response.status_code == 200
-        except Exception as e:
-            logging.error(f"Ошибка при проверке прокси {proxy_url}: {e}")
-            return False
+    # Proxy validation and setup is handled centrally in utils.get_proxies()
 
     def make_request(self, method, endpoint, **kwargs):
         url = self.base_url + endpoint
