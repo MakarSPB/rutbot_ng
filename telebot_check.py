@@ -11,6 +11,14 @@ API_TEMPLATE = os.getenv('TELEGRAM_API_URL')
 print('ENV TELEGRAM_API_URL =', API_TEMPLATE)
 print('telebot.apihelper.API_URL =', telebot.apihelper.API_URL)
 
+# Если в окружении задан TELEGRAM_API_URL, установим его в telebot.apihelper
+if API_TEMPLATE:
+    try:
+        telebot.apihelper.API_URL = API_TEMPLATE
+        print('telebot.apihelper.API_URL set to', telebot.apihelper.API_URL)
+    except Exception as e:
+        print('Failed to set telebot.apihelper.API_URL:', e)
+
 if not TOKEN or not API_TEMPLATE:
     print('Missing TELEGRAM_TOKEN or TELEGRAM_API_URL')
     raise SystemExit(2)
