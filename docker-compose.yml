@@ -27,7 +27,9 @@ services:
     restart: unless-stopped
 
   telegram-bot:
-    build: https://github.com/Makar-aka/rutbot_ng.git
+    build:
+      context: ./telegram-bot
+      dockerfile: Dockerfile
     env_file:
       - .env
     volumes:
