@@ -1,4 +1,31 @@
+version: "3.8"
 services:
+  wireguard:
+    image: ghcr.io/linuxserver/wireguard
+    container_name: wg-client
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Moscow
+    volumes:
+      - ./wireguard/config:/config
+      - /lib/modules:/lib/modules:ro
+    network_mode: "host"
+    restart: unless-stopped
+
+  squid:
+    image: sameersbn/squid:latest
+    container_name: squid-proxy
+    network_mode: "host"
+    volumes:
+      - ./squid/squid.conf:/etc/squid/squid.conf:ro
+      - ./squid/cache:/var/spool/squid
+      - ./squid/log:/var/log/squid
+    restart: unless-stopped
+
   telegram-bot:
     build: https://github.com/Makar-aka/rutbot_ng.git
     env_file:
